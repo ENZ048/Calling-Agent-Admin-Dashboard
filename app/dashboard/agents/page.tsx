@@ -65,7 +65,6 @@ export default function AgentsPage() {
   const [formGreeting, setFormGreeting] = useState("");
   const [formEndCallPhrases, setFormEndCallPhrases] = useState("");
   const [formSelectedLanguages, setFormSelectedLanguages] = useState<string[]>(["en"]);
-  const [formAutoLangDetection, setFormAutoLangDetection] = useState(false);
   const [formSttProvider, setFormSttProvider] = useState("deepgram");
   const [formLlmModel, setFormLlmModel] = useState("gpt-4o-mini");
   const [formTemperature, setFormTemperature] = useState(0.7);
@@ -324,7 +323,6 @@ export default function AgentsPage() {
     setFormGreeting("Hello! How can I help you today?");
     setFormEndCallPhrases("goodbye, bye, end call, thank you goodbye, talk to you later");
     setFormSelectedLanguages(["en"]);
-    setFormAutoLangDetection(false);
     setFormSttProvider("deepgram");
     setFormLlmModel("gpt-4o-mini");
     setFormTemperature(0.7);
@@ -399,7 +397,6 @@ export default function AgentsPage() {
     } else {
       setFormSelectedLanguages([agent.config?.language || "en"]);
     }
-    setFormAutoLangDetection(agent.config?.enableAutoLanguageDetection || false);
     setFormSttProvider(agent.config?.sttProvider || "deepgram");
     setFormLlmModel(agent.config?.llm?.model || "gpt-4o-mini");
     setFormTemperature(agent.config?.llm?.temperature ?? 0.7);
@@ -512,7 +509,6 @@ export default function AgentsPage() {
             maxTokens: formMaxTokens,
           },
           sttProvider: formSttProvider,
-          enableAutoLanguageDetection: formAutoLangDetection,
         };
 
         if (formEndCallPhrases.trim()) {
@@ -685,7 +681,6 @@ export default function AgentsPage() {
             maxTokens: formMaxTokens,
           },
           sttProvider: formSttProvider,
-          enableAutoLanguageDetection: formAutoLangDetection,
         };
 
         if (formEndCallPhrases.trim()) {
@@ -820,7 +815,6 @@ export default function AgentsPage() {
         },
         endCallPhrases: endCallPhrasesArray,
         sttProvider: formSttProvider,
-        enableAutoLanguageDetection: formAutoLangDetection,
       };
 
       if (formPersona.trim()) {
@@ -1297,7 +1291,6 @@ export default function AgentsPage() {
                       >
                         <option value="deepgram">Deepgram (Fastest)</option>
                         <option value="elevenlabs">ElevenLabs</option>
-                        <option value="openai">OpenAI</option>
                         <option value="sarvam">Sarvam (Indian languages)</option>
                         <option value="google">Google</option>
                       </select>
@@ -1530,23 +1523,6 @@ export default function AgentsPage() {
                     </div>
                   </div>
 
-                  {/* Auto language detection banner */}
-                  <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-[11px] text-sky-700 flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formAutoLangDetection}
-                      onChange={(e) => setFormAutoLangDetection(e.target.checked)}
-                      className="mt-0.5 h-3 w-3 rounded border border-sky-300"
-                    />
-                    <div>
-                      <p className="font-medium mb-0.5">Enable Automatic Language Detection</p>
-                      <p>
-                        When enabled, the agent will automatically detect the caller&apos;s
-                        language and respond in that language.
-                      </p>
-                    </div>
-                  </div>
-
                   {/* Languages - Multi-select */}
                   <div>
                     <label className="block text-[11px] font-medium text-zinc-600 mb-2">
@@ -1559,7 +1535,6 @@ export default function AgentsPage() {
                       <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">International Languages</p>
                       <div className="flex flex-wrap gap-1.5">
                         {[
-                          { code: "multi", label: "Multilingual" },
                           { code: "en", label: "English" },
                           { code: "es", label: "Spanish" },
                           { code: "fr", label: "French" },
@@ -1600,7 +1575,6 @@ export default function AgentsPage() {
                       <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Indian Languages</p>
                       <div className="flex flex-wrap gap-1.5">
                         {[
-                          { code: "multi-in", label: "Multilingual (IN)" },
                           { code: "hi", label: "Hindi" },
                           { code: "bn", label: "Bengali" },
                           { code: "te", label: "Telugu" },
@@ -1643,7 +1617,6 @@ export default function AgentsPage() {
                         <div className="flex flex-wrap gap-1.5">
                           {formSelectedLanguages.map((code) => {
                             const langMap: Record<string, { label: string; short: string }> = {
-                              "multi": { label: "Multilingual", short: "ML" },
                               "en": { label: "English", short: "EN" },
                               "es": { label: "Spanish", short: "ES" },
                               "fr": { label: "French", short: "FR" },
@@ -1654,7 +1627,6 @@ export default function AgentsPage() {
                               "ru": { label: "Russian", short: "RU" },
                               "ja": { label: "Japanese", short: "JA" },
                               "zh": { label: "Chinese", short: "ZH" },
-                              "multi-in": { label: "Multilingual (IN)", short: "ML-IN" },
                               "hi": { label: "Hindi", short: "HI" },
                               "bn": { label: "Bengali", short: "BN" },
                               "te": { label: "Telugu", short: "TE" },
@@ -1705,7 +1677,7 @@ export default function AgentsPage() {
                     >
                       <option value="deepgram">Deepgram (Recommended)</option>
                       <option value="sarvam">Sarvam (Indian languages)</option>
-                      <option value="whisper">Whisper</option>
+                      <option value="azure">Azure Speech Services</option>
                     </select>
                   </div>
 

@@ -857,14 +857,14 @@ export interface AgentConfig {
     persona?: string;
   };
   voice?: {
-    provider: 'openai' | 'elevenlabs' | 'deepgram' | 'sarvam' | 'google';
+    provider: 'elevenlabs' | 'deepgram' | 'sarvam' | 'google';
     voiceId: string;
     model?: string;
     settings?: Record<string, any>;
   };
   language?: string;
   enableAutoLanguageDetection?: boolean;
-  sttProvider?: 'deepgram' | 'sarvam' | 'whisper';
+  sttProvider?: 'deepgram' | 'sarvam' | 'azure';
   llm?: {
     model: string;
     temperature?: number;
@@ -967,7 +967,7 @@ export async function createAgentAPI(agentData: {
     prompt: string;
     greetingMessage: string;
     voice: {
-      provider: 'openai' | 'elevenlabs' | 'cartesia' | 'deepgram' | 'sarvam' | 'google';
+      provider: 'elevenlabs' | 'cartesia' | 'deepgram' | 'sarvam' | 'google';
       voiceId: string;
     };
     language: string;
@@ -1098,7 +1098,7 @@ export async function deleteAgentAPI(agentId: string): Promise<void> {
 // Voice types and functions
 export interface VoiceOption {
   id: string;
-  provider: 'elevenlabs' | 'deepgram' | 'openai' | 'sarvam' | 'google';
+  provider: 'elevenlabs' | 'deepgram' | 'sarvam' | 'google';
   name: string;
   gender: 'male' | 'female' | 'neutral';
   accent?: string;

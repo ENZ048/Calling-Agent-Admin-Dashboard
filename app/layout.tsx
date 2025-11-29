@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ToastProvider } from "@/lib/toast";
 import "./globals.css";
@@ -25,8 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider afterSignOutUrl="/login" appearance={{ elements: { footer: "hidden" } }}>
-      <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-50 text-zinc-900`}
           suppressHydrationWarning
@@ -36,6 +34,5 @@ export default function RootLayout({
         </ToastProvider>
       </body>
     </html>
-    </ClerkProvider>
   );
 }

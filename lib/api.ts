@@ -157,7 +157,7 @@ export interface CampaignDetailResponse {
   data: CampaignDetail;
 }
 
-import { API_BASE_URL } from './config';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
 /**
  * Get authentication token from localStorage
@@ -857,14 +857,14 @@ export interface AgentConfig {
     persona?: string;
   };
   voice?: {
-    provider: 'elevenlabs' | 'deepgram' | 'sarvam' | 'google';
+    provider: 'openai' | 'elevenlabs' | 'deepgram' | 'sarvam' | 'google';
     voiceId: string;
     model?: string;
     settings?: Record<string, any>;
   };
   language?: string;
   enableAutoLanguageDetection?: boolean;
-  sttProvider?: 'deepgram' | 'sarvam' | 'azure';
+  sttProvider?: 'deepgram' | 'sarvam' | 'whisper';
   llm?: {
     model: string;
     temperature?: number;
@@ -883,13 +883,13 @@ export interface AgentConfig {
     ringTimeoutSeconds?: number;
     fallbackBehavior?: 'continue' | 'hangup' | 'voicemail';
   };
+  leadKeywords?: string[];  // Keywords to identify leads from call transcripts
 }
 
 export interface BackendAgent {
   id: string;
   name: string;
   description: string;
-  gender?: 'male' | 'female';
   role: string;
   virtualNumber: string;
   userName: string;
@@ -964,12 +964,11 @@ export async function fetchAgentDetail(id: string): Promise<BackendAgent> {
 export async function createAgentAPI(agentData: {
   name: string;
   description?: string;
-  gender?: 'male' | 'female';
   config: {
     prompt: string;
     greetingMessage: string;
     voice: {
-      provider: 'elevenlabs' | 'cartesia' | 'deepgram' | 'sarvam' | 'google';
+      provider: 'openai' | 'elevenlabs' | 'cartesia' | 'deepgram' | 'sarvam' | 'google';
       voiceId: string;
     };
     language: string;
@@ -1013,7 +1012,6 @@ export async function createAgentAPI(agentData: {
       id: agent.id,
       name: agent.name,
       description: agent.description || '',
-      gender: agent.gender,
       role: agent.description?.split(' ')[0] || 'Custom',
       virtualNumber: '',
       userName: '',
@@ -1038,18 +1036,9 @@ export async function updateAgentAPI(
   agentData: Partial<{
     name: string;
     description: string;
-    gender: 'male' | 'female';
     config: Partial<AgentConfig>;
   }>
 ): Promise<BackendAgent> {
-  // DEBUG: Log what we're sending to the server
-  console.log('========== UPDATE AGENT API CALL ==========');
-  console.log('Agent ID:', agentId);
-  console.log('Agent Data:', JSON.stringify(agentData, null, 2));
-  console.log('Gender being sent:', agentData.gender);
-  console.log('URL:', `${API_BASE_URL}/api/v1/dashboard/agents/${agentId}`);
-  console.log('============================================');
-
   const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/agents/${agentId}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
@@ -1072,7 +1061,6 @@ export async function updateAgentAPI(
       id: agent.id,
       name: agent.name,
       description: agent.description || '',
-      gender: agent.gender,
       role: agent.description?.split(' ')[0] || 'Custom',
       virtualNumber: '',
       userName: '',
@@ -1111,7 +1099,7 @@ export async function deleteAgentAPI(agentId: string): Promise<void> {
 // Voice types and functions
 export interface VoiceOption {
   id: string;
-  provider: 'elevenlabs' | 'deepgram' | 'sarvam' | 'google';
+  provider: 'elevenlabs' | 'deepgram' | 'openai' | 'sarvam' | 'google';
   name: string;
   gender: 'male' | 'female' | 'neutral';
   accent?: string;

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { WS_URL } from './config';
 
 export type LiveCallEvent =
   | { type: "call_started"; payload: any }
@@ -26,6 +25,10 @@ export const useWebSocketStore = create<WebSocketState>((set) => ({
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
       return;
     }
+
+    const WS_URL =
+      process.env.NEXT_PUBLIC_WS_URL ??
+      "ws://localhost:5000/ws";
 
     set({ status: "connecting" });
 

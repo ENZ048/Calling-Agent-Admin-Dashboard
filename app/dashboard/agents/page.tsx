@@ -29,7 +29,6 @@ import {
 import { motion } from "framer-motion";
 import { formatNumber } from "@/lib/utils";
 import { useToast } from "@/lib/toast";
-import { API_BASE_URL } from "@/lib/config";
 import {
   fetchAgents,
   createAgentAPI,
@@ -64,14 +63,16 @@ export default function AgentsPage() {
   const [formPersona, setFormPersona] = useState("");
   const [formGreeting, setFormGreeting] = useState("");
   const [formEndCallPhrases, setFormEndCallPhrases] = useState("");
+  const [formLeadKeywords, setFormLeadKeywords] = useState("");
+  const [formFollowUpKeywords, setFormFollowUpKeywords] = useState("");
   const [formSelectedLanguages, setFormSelectedLanguages] = useState<string[]>(["en"]);
+  const [formAutoLangDetection, setFormAutoLangDetection] = useState(false);
   const [formSttProvider, setFormSttProvider] = useState("deepgram");
   const [formLlmModel, setFormLlmModel] = useState("gpt-4o-mini");
   const [formTemperature, setFormTemperature] = useState(0.7);
   const [formMaxTokens, setFormMaxTokens] = useState(300);
   const [formVoiceProvider, setFormVoiceProvider] = useState("deepgram");
   const [formVoiceId, setFormVoiceId] = useState("aura-asteria-en");
-  const [formGender, setFormGender] = useState<"male" | "female">("female");
   const [availableVoices, setAvailableVoices] = useState<VoiceOption[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
@@ -243,7 +244,7 @@ export default function AgentsPage() {
 
     try {
       // Generate preview audio via backend API
-      const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/voices/preview`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/v1/dashboard/voices/preview`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -324,13 +325,13 @@ export default function AgentsPage() {
     setFormGreeting("Hello! How can I help you today?");
     setFormEndCallPhrases("goodbye, bye, end call, thank you goodbye, talk to you later");
     setFormSelectedLanguages(["en"]);
+    setFormAutoLangDetection(false);
     setFormSttProvider("deepgram");
     setFormLlmModel("gpt-4o-mini");
     setFormTemperature(0.7);
     setFormMaxTokens(300);
     setFormVoiceProvider("deepgram");
     setFormVoiceId("aura-asteria-en");
-    setFormGender("female");
     setFormInboundGreeting("");
     setFormInboundPrompt("");
     setFormOutboundGreeting("");
@@ -392,6 +393,8 @@ export default function AgentsPage() {
     setFormPersona(agent.config?.persona || "");
     setFormGreeting(agent.config?.greetingMessage || "");
     setFormEndCallPhrases(agent.config?.endCallPhrases?.join(", ") || "");
+    setFormLeadKeywords((agent.config as any)?.leadKeywords?.join(", ") || "");
+    setFormFollowUpKeywords((agent.config as any)?.followUpKeywords?.join(", ") || "");
     // Load supported languages - use supportedLanguages if available, otherwise fallback to single language
     const supportedLangs = (agent.config as any)?.supportedLanguages;
     if (supportedLangs && Array.isArray(supportedLangs) && supportedLangs.length > 0) {
@@ -399,13 +402,13 @@ export default function AgentsPage() {
     } else {
       setFormSelectedLanguages([agent.config?.language || "en"]);
     }
+    setFormAutoLangDetection(agent.config?.enableAutoLanguageDetection || false);
     setFormSttProvider(agent.config?.sttProvider || "deepgram");
     setFormLlmModel(agent.config?.llm?.model || "gpt-4o-mini");
     setFormTemperature(agent.config?.llm?.temperature ?? 0.7);
     setFormMaxTokens(agent.config?.llm?.maxTokens ?? 300);
     setFormVoiceProvider(agent.config?.voice?.provider || "deepgram");
     setFormVoiceId(agent.config?.voice?.voiceId || "aura-asteria-en");
-    setFormGender(agent.gender || "female");
     setFormInboundGreeting(agent.config?.inboundConfig?.greetingMessage || "");
     setFormInboundPrompt(agent.config?.inboundConfig?.prompt || "");
     setFormOutboundGreeting(agent.config?.outboundConfig?.greetingMessage || "");
@@ -512,10 +515,15 @@ export default function AgentsPage() {
             maxTokens: formMaxTokens,
           },
           sttProvider: formSttProvider,
+          enableAutoLanguageDetection: formAutoLangDetection,
         };
 
         if (formEndCallPhrases.trim()) {
           configData.endCallPhrases = formEndCallPhrases.split(",").map((p: string) => p.trim()).filter(Boolean);
+        }
+
+        if (formLeadKeywords.trim()) {
+          configData.leadKeywords = formLeadKeywords.split(",").map((p: string) => p.trim()).filter(Boolean);
         }
 
         if (formInboundGreeting.trim() || formInboundPrompt.trim()) {
@@ -541,10 +549,9 @@ export default function AgentsPage() {
         const newAgent = await createAgentAPI({
           name: formName.trim(),
           description: formDescription.trim() || undefined,
-          gender: formGender,
           config: configData,
         });
-
+        
         agentId = newAgent.id;
         setSelectedId(agentId);
         setMode("update");
@@ -685,10 +692,15 @@ export default function AgentsPage() {
             maxTokens: formMaxTokens,
           },
           sttProvider: formSttProvider,
+          enableAutoLanguageDetection: formAutoLangDetection,
         };
 
         if (formEndCallPhrases.trim()) {
           configData.endCallPhrases = formEndCallPhrases.split(",").map((p: string) => p.trim()).filter(Boolean);
+        }
+
+        if (formLeadKeywords.trim()) {
+          configData.leadKeywords = formLeadKeywords.split(",").map((p: string) => p.trim()).filter(Boolean);
         }
 
         if (formInboundGreeting.trim() || formInboundPrompt.trim()) {
@@ -714,10 +726,9 @@ export default function AgentsPage() {
         const newAgent = await createAgentAPI({
           name: formName.trim(),
           description: formDescription.trim() || undefined,
-          gender: formGender,
           config: configData,
         });
-
+        
         agentId = newAgent.id;
         setSelectedId(agentId);
         setMode("update");
@@ -820,7 +831,18 @@ export default function AgentsPage() {
         },
         endCallPhrases: endCallPhrasesArray,
         sttProvider: formSttProvider,
+        enableAutoLanguageDetection: formAutoLangDetection,
       };
+
+      // Add lead keywords if provided
+      if (formLeadKeywords.trim()) {
+        configData.leadKeywords = formLeadKeywords.split(",").map((s: string) => s.trim()).filter(Boolean);
+      }
+
+      // Add follow-up keywords if provided
+      if (formFollowUpKeywords.trim()) {
+        configData.followUpKeywords = formFollowUpKeywords.split(",").map((s: string) => s.trim()).filter(Boolean);
+      }
 
       if (formPersona.trim()) {
         configData.persona = formPersona.trim();
@@ -865,7 +887,6 @@ export default function AgentsPage() {
         const newAgent = await createAgentAPI({
           name: formName.trim(),
           description: formDescription.trim() || undefined,
-          gender: formGender,
           config: configData,
         });
         toast.success("Agent created successfully");
@@ -876,10 +897,18 @@ export default function AgentsPage() {
         loadKnowledgeBase(newAgent.id);
         loadPhones();
       } else if (selectedId) {
+        // DEBUG: Log what we're sending to backend
+        console.log("UPDATE AGENT - configData being sent:", {
+          leadKeywords: configData.leadKeywords,
+          followUpKeywords: configData.followUpKeywords,
+          formLeadKeywords: formLeadKeywords,
+          formFollowUpKeywords: formFollowUpKeywords,
+          allConfigKeys: Object.keys(configData)
+        });
+
         await updateAgentAPI(selectedId, {
           name: formName.trim(),
           description: formDescription.trim(),
-          gender: formGender,
           config: configData,
         });
         toast.success("Agent updated successfully");
@@ -1114,22 +1143,6 @@ export default function AgentsPage() {
                         Optional · Max 500 characters
                       </p>
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-zinc-500 mb-1">
-                        Voice Gender <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
-                        value={formGender}
-                        onChange={(e) => setFormGender(e.target.value as "male" | "female")}
-                      >
-                        <option value="female">Female</option>
-                        <option value="male">Male</option>
-                      </select>
-                      <p className="mt-1 text-[11px] text-zinc-400">
-                        Select the voice gender for multilingual calls. This ensures consistent voice gender across all supported languages.
-                      </p>
-                    </div>
                   </div>
                 </>
               )}
@@ -1314,6 +1327,7 @@ export default function AgentsPage() {
                       >
                         <option value="deepgram">Deepgram (Fastest)</option>
                         <option value="elevenlabs">ElevenLabs</option>
+                        <option value="openai">OpenAI</option>
                         <option value="sarvam">Sarvam (Indian languages)</option>
                         <option value="google">Google</option>
                       </select>
@@ -1546,6 +1560,23 @@ export default function AgentsPage() {
                     </div>
                   </div>
 
+                  {/* Auto language detection banner */}
+                  <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-[11px] text-sky-700 flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formAutoLangDetection}
+                      onChange={(e) => setFormAutoLangDetection(e.target.checked)}
+                      className="mt-0.5 h-3 w-3 rounded border border-sky-300"
+                    />
+                    <div>
+                      <p className="font-medium mb-0.5">Enable Automatic Language Detection</p>
+                      <p>
+                        When enabled, the agent will automatically detect the caller&apos;s
+                        language and respond in that language.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Languages - Multi-select */}
                   <div>
                     <label className="block text-[11px] font-medium text-zinc-600 mb-2">
@@ -1558,6 +1589,7 @@ export default function AgentsPage() {
                       <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">International Languages</p>
                       <div className="flex flex-wrap gap-1.5">
                         {[
+                          { code: "multi", label: "Multilingual" },
                           { code: "en", label: "English" },
                           { code: "es", label: "Spanish" },
                           { code: "fr", label: "French" },
@@ -1598,6 +1630,7 @@ export default function AgentsPage() {
                       <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Indian Languages</p>
                       <div className="flex flex-wrap gap-1.5">
                         {[
+                          { code: "multi-in", label: "Multilingual (IN)" },
                           { code: "hi", label: "Hindi" },
                           { code: "bn", label: "Bengali" },
                           { code: "te", label: "Telugu" },
@@ -1640,6 +1673,7 @@ export default function AgentsPage() {
                         <div className="flex flex-wrap gap-1.5">
                           {formSelectedLanguages.map((code) => {
                             const langMap: Record<string, { label: string; short: string }> = {
+                              "multi": { label: "Multilingual", short: "ML" },
                               "en": { label: "English", short: "EN" },
                               "es": { label: "Spanish", short: "ES" },
                               "fr": { label: "French", short: "FR" },
@@ -1650,6 +1684,7 @@ export default function AgentsPage() {
                               "ru": { label: "Russian", short: "RU" },
                               "ja": { label: "Japanese", short: "JA" },
                               "zh": { label: "Chinese", short: "ZH" },
+                              "multi-in": { label: "Multilingual (IN)", short: "ML-IN" },
                               "hi": { label: "Hindi", short: "HI" },
                               "bn": { label: "Bengali", short: "BN" },
                               "te": { label: "Telugu", short: "TE" },
@@ -1700,7 +1735,7 @@ export default function AgentsPage() {
                     >
                       <option value="deepgram">Deepgram (Recommended)</option>
                       <option value="sarvam">Sarvam (Indian languages)</option>
-                      <option value="azure">Azure Speech Services</option>
+                      <option value="whisper">Whisper</option>
                     </select>
                   </div>
 
@@ -1716,6 +1751,38 @@ export default function AgentsPage() {
                     />
                     <p className="mt-1 text-[11px] text-zinc-400">
                       Comma‑separated phrases that will automatically end the call.
+                    </p>
+                  </div>
+
+                  {/* Lead Keywords */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-zinc-600 mb-1">
+                      Lead Keywords
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                      value={formLeadKeywords}
+                      onChange={(e) => setFormLeadKeywords(e.target.value)}
+                      placeholder="interested, buy, purchase, quote, pricing, demo"
+                    />
+                    <p className="mt-1 text-[11px] text-zinc-400">
+                      Comma‑separated keywords to identify leads from call transcripts. Calls matching these keywords will appear in the Leads section.
+                    </p>
+                  </div>
+
+                  {/* Follow-Up Keywords */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-zinc-600 mb-1">
+                      Follow-Up Keywords
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                      value={formFollowUpKeywords}
+                      onChange={(e) => setFormFollowUpKeywords(e.target.value)}
+                      placeholder="callback, follow up, call back, remind me, later"
+                    />
+                    <p className="mt-1 text-[11px] text-zinc-400">
+                      Comma‑separated keywords to identify calls requiring follow-up. Calls matching these keywords will appear in the Follow-Ups section.
                     </p>
                   </div>
 

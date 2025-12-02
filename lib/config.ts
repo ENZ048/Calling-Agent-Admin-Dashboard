@@ -4,7 +4,7 @@
  */
 
 // Set this to 'development' for localhost or 'production' for live server
-const ENV_MODE: 'development' | 'production' = 'production';
+const ENV_MODE: 'development' | 'production' = 'development';
 
 const CONFIG = {
   development: {

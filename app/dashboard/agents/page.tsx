@@ -25,6 +25,8 @@ import {
   Mail,
   MessageSquare,
   Plus,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatNumber } from "@/lib/utils";
@@ -45,6 +47,76 @@ import {
   KnowledgeBaseDocument,
   Phone as PhoneType,
 } from "@/lib/api";
+
+// Default voicemail keywords (matching backend defaults)
+const DEFAULT_VOICEMAIL_KEYWORDS = [
+  // Standard voicemail greetings
+  'voicemail', 'leave a message', 'after the beep', 'after the tone', 'not available',
+  'cannot take your call', 'please leave', 'mailbox', 'press pound', 'press hash', 'recording', 'beep',
+
+  // User not answering / unavailable
+  'not answering', 'unable to answer', 'unable to take', 'not able to answer',
+  'unable to come to the phone', 'away from the phone', 'step away', 'not here right now', 'not in right now',
+
+  // User busy on another call
+  'busy', 'on another call', 'on the other line', 'another line', 'currently on a call',
+  'currently busy', 'engaged', 'line is busy', 'subscriber is busy', 'subscriber busy',
+
+  // Call declined / rejected
+  'call has been declined', 'declined your call', 'rejected', 'not accepting calls', 'do not wish to talk',
+
+  // Network/carrier messages
+  'subscriber cannot be reached', 'cannot be reached', 'unreachable', 'out of coverage',
+  'switched off', 'turned off', 'not reachable', 'temporarily unavailable',
+  'the person you are calling', 'the number you are calling', 'the number you have dialed',
+  'customer you have called', 'customer is not available',
+
+  // Auto-response messages
+  'please try again later', 'call back later', 'try your call again',
+
+  // Indian Regional Languages - Hindi (Devanagari & Romanized)
+  'ग्राहक उपलब्ध नहीं', 'उपलब्ध नहीं', 'व्यस्त', 'फोन बंद', 'स्विच ऑफ', 'कवरेज', 'संदेश छोड़ें', 'बाद में कॉल करें',
+  'graahak uplabdh nahin', 'uplabdh nahin', 'vyast', 'phone band', 'switch off', 'sandesh chhodein',
+
+  // Tamil
+  'சந்தாதாரர்', 'கிடைக்கவில்லை', 'வசதி இல்லை', 'பணியில்', 'அழைப்பு நிராகரிக்கப்பட்டது',
+  'தொலைபேசி அணைக்கப்பட்டுள்ளது', 'செய்தி விடவும்', 'பிறகு அழைக்கவும்',
+  'santhaatharar', 'kidaikkavillai', 'tholaipesi anaikkappatullathu',
+
+  // Telugu
+  'చందాదారు', 'అందుబాటులో లేదు', 'బిజీ', 'నిరాకరించబడింది', 'ఫోన్ స్విచ్ ఆఫ్',
+  'సందేశం పంపండి', 'తర్వాత కాల్ చేయండి', 'chandaadaaru', 'andubaatulo ledu', 'phone switch off',
+
+  // Kannada
+  'ಚಂದಾದಾರ', 'ಲಭ್ಯವಿಲ್ಲ', 'ಕಾರ್ಯನಿರತ', 'ಫೋನ್ ಸ್ವಿಚ್ ಆಫ್', 'ಸಂದೇಶ ಬಿಡಿ',
+  'ನಂತರ ಕರೆ ಮಾಡಿ', 'chandaadaara', 'labhyavilla',
+
+  // Malayalam
+  'വരിക്കാരൻ', 'ലഭ്യമല്ല', 'തിരക്കിലാണ്', 'ഫോൺ സ്വിച്ച് ഓഫ്', 'സന്ദേശം അയയ്ക്കുക',
+  'പിന്നീട് വിളിക്കുക', 'varikkaaran', 'labhyamalla',
+
+  // Marathi
+  'ग्राहक', 'उपलब्ध नाही', 'व्यस्त आहे', 'फोन बंद आहे', 'संदेश द्या', 'नंतर कॉल करा',
+  'graahak', 'uplabdh naahi',
+
+  // Bengali
+  'গ্রাহক', 'উপলব্ধ নয়', 'ব্যস্ত', 'ফোন বন্ধ', 'বার্তা রাখুন', 'পরে কল করুন',
+  'graahak', 'uplabdh noy',
+
+  // Gujarati
+  'ગ્રાહક', 'ઉપલબ્ધ નથી', 'વ્યસ્ત', 'ફોન બંધ', 'સંદેશ મૂકો', 'પછી કૉલ કરો',
+  'graahak', 'uplabdh nathi',
+
+  // Punjabi
+  'ਗ੍ਰਾਹਕ', 'ਉਪਲਬਧ ਨਹੀਂ', 'ਰੁਝੇਵਿਆਂ', 'ਫੋਨ ਬੰਦ', 'ਸੁਨੇਹਾ ਛੱਡੋ', 'ਬਾਅਦ ਵਿੱਚ ਕਾਲ ਕਰੋ',
+  'graahak', 'uplabadh nahin',
+
+  // Common Hinglish/Mix phrases used by Indian carriers
+  'aap dwara call kiya gaya', 'mobile band hai', 'mobile switch off hai',
+  'coverage area ke bahar', 'network area ke bahar', 'sampark nahin ho sakta',
+  'message chhod sakte hain', 'baad mein call karein', 'abhi call nahin utha sakte',
+  'kripaya baad mein call karein'
+];
 
 export default function AgentsPage() {
   const toast = useToast();
@@ -156,6 +228,11 @@ export default function AgentsPage() {
     campaignName: "client-campaign-name",
     keywords: "",
   }]);
+
+  // Voicemail Detection settings
+  const [formVoicemailEnabled, setFormVoicemailEnabled] = useState(true);
+  const [formVoicemailKeywords, setFormVoicemailKeywords] = useState("");
+  const [showDefaultKeywords, setShowDefaultKeywords] = useState(false);
 
   // Knowledge Base state
   const [kbDocuments, setKbDocuments] = useState<any[]>([]);
@@ -381,6 +458,9 @@ export default function AgentsPage() {
       campaignName: "client-campaign-name",
       keywords: "",
     }]);
+    // Reset voicemail detection settings
+    setFormVoicemailEnabled(true);
+    setFormVoicemailKeywords("");
   };
 
   const loadAgentToForm = (agent: BackendAgent) => {
@@ -420,6 +500,10 @@ export default function AgentsPage() {
     setFormConfirmationTimeout(ts?.confirmationTimeoutMs ? Math.round(ts.confirmationTimeoutMs / 1000) : 15);
     setFormRingTimeout(ts?.ringTimeoutSeconds || 30);
     setFormFallbackBehavior(ts?.fallbackBehavior || "continue");
+    // Load voicemail detection settings
+    const vmd = agent.config?.voicemailDetection;
+    setFormVoicemailEnabled(vmd?.enabled ?? true);
+    setFormVoicemailKeywords(vmd?.keywords?.join(", ") || "");
   };
 
   const openCreate = () => {
@@ -855,6 +939,15 @@ export default function AgentsPage() {
         ringTimeoutSeconds: formRingTimeout,
         fallbackBehavior: formFallbackBehavior,
       };
+
+      // Add voicemail detection settings
+      configData.voicemailDetection = {
+        enabled: formVoicemailEnabled,
+      };
+      // Only add keywords if custom keywords are provided
+      if (formVoicemailKeywords.trim()) {
+        configData.voicemailDetection.keywords = formVoicemailKeywords.split(",").map((s) => s.trim()).filter(Boolean);
+      }
 
       if (mode === "create") {
         const newAgent = await createAgentAPI({
@@ -1896,6 +1989,90 @@ export default function AgentsPage() {
                           <p className="mt-1 text-[11px] text-zinc-400">
                             What to do if transfer fails or is declined
                           </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Voicemail Detection Section */}
+                  <div className="mt-6 pt-4 border-t border-zinc-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                          <Phone className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-900">Voicemail Detection</p>
+                          <p className="text-[11px] text-zinc-500">Automatically detect and terminate voicemail calls</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formVoicemailEnabled}
+                          onChange={(e) => setFormVoicemailEnabled(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-zinc-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500"></div>
+                      </label>
+                    </div>
+
+                    {formVoicemailEnabled && (
+                      <div className="space-y-4 rounded-lg border border-purple-100 bg-purple-50/30 px-4 py-4">
+                        {/* Info banner */}
+                        <div className="rounded-md border border-purple-200 bg-purple-100/50 px-3 py-2 text-[11px] text-purple-700">
+                          Voicemail detection uses keywords and audio patterns to identify voicemail greetings. When detected, the call is terminated immediately to save costs. Leave keywords empty to use default multi-lingual keywords.
+                        </div>
+
+                        {/* Custom Keywords */}
+                        <div>
+                          <label className="block text-[11px] font-medium text-zinc-600 mb-1">
+                            Custom Keywords (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={formVoicemailKeywords}
+                            onChange={(e) => setFormVoicemailKeywords(e.target.value)}
+                            placeholder="voicemail, leave a message, after the beep, not available"
+                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-300"
+                          />
+                          <p className="mt-1 text-[11px] text-zinc-400">
+                            Comma-separated keywords. Leave empty to use {DEFAULT_VOICEMAIL_KEYWORDS.length} default keywords in multiple languages
+                          </p>
+                        </div>
+
+                        {/* Default Keywords Viewer */}
+                        <div className="border-t border-purple-200 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => setShowDefaultKeywords(!showDefaultKeywords)}
+                            className="flex items-center gap-2 text-[11px] font-medium text-purple-700 hover:text-purple-800 transition-colors"
+                          >
+                            {showDefaultKeywords ? (
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            )}
+                            {showDefaultKeywords ? 'Hide' : 'View'} {DEFAULT_VOICEMAIL_KEYWORDS.length} Default Keywords
+                          </button>
+
+                          {showDefaultKeywords && (
+                            <div className="mt-3 rounded-md border border-purple-200 bg-white p-3 max-h-64 overflow-y-auto">
+                              <div className="flex flex-wrap gap-1.5">
+                                {DEFAULT_VOICEMAIL_KEYWORDS.map((keyword, index) => (
+                                  <span
+                                    key={index}
+                                    className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-[10px] text-purple-700 border border-purple-200"
+                                  >
+                                    {keyword}
+                                  </span>
+                                ))}
+                              </div>
+                              <p className="mt-3 text-[10px] text-zinc-500 border-t border-zinc-200 pt-2">
+                                These keywords are used when no custom keywords are specified. They include English, Hindi, Tamil, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, and Hinglish phrases.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

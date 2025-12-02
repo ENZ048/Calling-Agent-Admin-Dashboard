@@ -883,6 +883,10 @@ export interface AgentConfig {
     ringTimeoutSeconds?: number;
     fallbackBehavior?: 'continue' | 'hangup' | 'voicemail';
   };
+  voicemailDetection?: {
+    enabled: boolean;
+    keywords?: string[];
+  };
 }
 
 export interface BackendAgent {

@@ -143,6 +143,7 @@ export default function AgentsPage() {
   const [formMaxTokens, setFormMaxTokens] = useState(300);
   const [formVoiceProvider, setFormVoiceProvider] = useState("deepgram");
   const [formVoiceId, setFormVoiceId] = useState("aura-asteria-en");
+  const [formGender, setFormGender] = useState<"male" | "female">("female");
   const [availableVoices, setAvailableVoices] = useState<VoiceOption[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
@@ -406,6 +407,7 @@ export default function AgentsPage() {
     setFormMaxTokens(300);
     setFormVoiceProvider("deepgram");
     setFormVoiceId("aura-asteria-en");
+    setFormGender("female");
     setFormInboundGreeting("");
     setFormInboundPrompt("");
     setFormOutboundGreeting("");
@@ -483,6 +485,7 @@ export default function AgentsPage() {
     setFormMaxTokens(agent.config?.llm?.maxTokens ?? 300);
     setFormVoiceProvider(agent.config?.voice?.provider || "deepgram");
     setFormVoiceId(agent.config?.voice?.voiceId || "aura-asteria-en");
+    setFormGender(agent.gender || "female");
     setFormInboundGreeting(agent.config?.inboundConfig?.greetingMessage || "");
     setFormInboundPrompt(agent.config?.inboundConfig?.prompt || "");
     setFormOutboundGreeting(agent.config?.outboundConfig?.greetingMessage || "");
@@ -622,9 +625,10 @@ export default function AgentsPage() {
         const newAgent = await createAgentAPI({
           name: formName.trim(),
           description: formDescription.trim() || undefined,
+          gender: formGender,
           config: configData,
         });
-        
+
         agentId = newAgent.id;
         setSelectedId(agentId);
         setMode("update");
@@ -794,9 +798,10 @@ export default function AgentsPage() {
         const newAgent = await createAgentAPI({
           name: formName.trim(),
           description: formDescription.trim() || undefined,
+          gender: formGender,
           config: configData,
         });
-        
+
         agentId = newAgent.id;
         setSelectedId(agentId);
         setMode("update");
@@ -953,6 +958,7 @@ export default function AgentsPage() {
         const newAgent = await createAgentAPI({
           name: formName.trim(),
           description: formDescription.trim() || undefined,
+          gender: formGender,
           config: configData,
         });
         toast.success("Agent created successfully");
@@ -966,6 +972,7 @@ export default function AgentsPage() {
         await updateAgentAPI(selectedId, {
           name: formName.trim(),
           description: formDescription.trim(),
+          gender: formGender,
           config: configData,
         });
         toast.success("Agent updated successfully");
@@ -1198,6 +1205,22 @@ export default function AgentsPage() {
                       />
                       <p className="mt-1 text-[11px] text-zinc-400">
                         Optional · Max 500 characters
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-zinc-500 mb-1">
+                        Voice Gender <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                        value={formGender}
+                        onChange={(e) => setFormGender(e.target.value as "male" | "female")}
+                      >
+                        <option value="female">Female</option>
+                        <option value="male">Male</option>
+                      </select>
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        Select the voice gender for multilingual calls. This ensures consistent voice gender across all supported languages.
                       </p>
                     </div>
                   </div>

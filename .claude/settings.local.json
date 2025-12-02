@@ -8,7 +8,9 @@
       "Bash(git push:*)",
       "Bash(tar:*)",
       "Bash(scp:*)",
-      "Bash(nslookup:*)"
+      "Bash(nslookup:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge origin/feature/filler-settings --no-ff -m \"$(cat <<''EOF''\nMerge feature/filler-settings into main\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

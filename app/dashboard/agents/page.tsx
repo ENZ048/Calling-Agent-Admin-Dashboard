@@ -468,14 +468,39 @@ export default function AgentsPage() {
   };
 
   const loadAgentToForm = (agent: BackendAgent) => {
+    const config = agent.config as any;
+    console.log("========== LOADING AGENT TO FORM ==========");
+    console.log("Agent:", agent);
+    console.log("Agent Config:", config);
+    console.log("Config keys:", Object.keys(config || {}));
+    console.log("Config JSON:", JSON.stringify(config, null, 2));
+    console.log("Lead Keywords:", config?.leadKeywords);
+    console.log("Follow-Up Keywords:", config?.followUpKeywords);
+    console.log("Type check - is array?", Array.isArray(config?.leadKeywords));
+    console.log("===========================================");
+
     setFormName(agent.name);
     setFormDescription(agent.description || "");
-    setFormPrompt(agent.config?.prompt || "");
-    setFormPersona(agent.config?.persona || "");
-    setFormGreeting(agent.config?.greetingMessage || "");
-    setFormEndCallPhrases(agent.config?.endCallPhrases?.join(", ") || "");
-    setFormLeadKeywords((agent.config as any)?.leadKeywords?.join(", ") || "");
-    setFormFollowUpKeywords((agent.config as any)?.followUpKeywords?.join(", ") || "");
+    setFormPrompt(config?.prompt || "");
+    setFormPersona(config?.persona || "");
+    setFormGreeting(config?.greetingMessage || "");
+    setFormEndCallPhrases(config?.endCallPhrases?.join(", ") || "");
+
+    // Handle lead keywords
+    const leadKeywords = config?.leadKeywords;
+    if (Array.isArray(leadKeywords) && leadKeywords.length > 0) {
+      setFormLeadKeywords(leadKeywords.join(", "));
+    } else {
+      setFormLeadKeywords("");
+    }
+
+    // Handle follow-up keywords
+    const followUpKeywords = config?.followUpKeywords;
+    if (Array.isArray(followUpKeywords) && followUpKeywords.length > 0) {
+      setFormFollowUpKeywords(followUpKeywords.join(", "));
+    } else {
+      setFormFollowUpKeywords("");
+    }
     // Load supported languages - use supportedLanguages if available, otherwise fallback to single language
     const supportedLangs = (agent.config as any)?.supportedLanguages;
     if (supportedLangs && Array.isArray(supportedLangs) && supportedLangs.length > 0) {
@@ -973,6 +998,23 @@ export default function AgentsPage() {
       if (formVoicemailKeywords.trim()) {
         configData.voicemailDetection.keywords = formVoicemailKeywords.split(",").map((s) => s.trim()).filter(Boolean);
       }
+
+      // Add lead and follow-up keywords
+      configData.leadKeywords = formLeadKeywords.trim()
+        ? formLeadKeywords.split(",").map((k: string) => k.trim()).filter(Boolean)
+        : [];
+
+      configData.followUpKeywords = formFollowUpKeywords.trim()
+        ? formFollowUpKeywords.split(",").map((k: string) => k.trim()).filter(Boolean)
+        : [];
+
+      console.log("========== SAVING AGENT ==========");
+      console.log("Form Lead Keywords:", formLeadKeywords);
+      console.log("Form Follow-Up Keywords:", formFollowUpKeywords);
+      console.log("Config Lead Keywords:", configData.leadKeywords);
+      console.log("Config Follow-Up Keywords:", configData.followUpKeywords);
+      console.log("Full Config Data:", configData);
+      console.log("==================================");
 
       if (mode === "create") {
         const newAgent = await createAgentAPI({

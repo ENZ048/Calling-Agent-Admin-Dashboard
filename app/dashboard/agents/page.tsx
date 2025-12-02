@@ -136,6 +136,8 @@ export default function AgentsPage() {
   const [formPersona, setFormPersona] = useState("");
   const [formGreeting, setFormGreeting] = useState("");
   const [formEndCallPhrases, setFormEndCallPhrases] = useState("");
+  const [formLeadKeywords, setFormLeadKeywords] = useState("");
+  const [formFollowUpKeywords, setFormFollowUpKeywords] = useState("");
   const [formSelectedLanguages, setFormSelectedLanguages] = useState<string[]>(["en"]);
   const [formSttProvider, setFormSttProvider] = useState("deepgram");
   const [formLlmModel, setFormLlmModel] = useState("gpt-4o-mini");
@@ -472,6 +474,8 @@ export default function AgentsPage() {
     setFormPersona(agent.config?.persona || "");
     setFormGreeting(agent.config?.greetingMessage || "");
     setFormEndCallPhrases(agent.config?.endCallPhrases?.join(", ") || "");
+    setFormLeadKeywords((agent.config as any)?.leadKeywords?.join(", ") || "");
+    setFormFollowUpKeywords((agent.config as any)?.followUpKeywords?.join(", ") || "");
     // Load supported languages - use supportedLanguages if available, otherwise fallback to single language
     const supportedLangs = (agent.config as any)?.supportedLanguages;
     if (supportedLangs && Array.isArray(supportedLangs) && supportedLangs.length > 0) {
@@ -600,6 +604,14 @@ export default function AgentsPage() {
 
         if (formEndCallPhrases.trim()) {
           configData.endCallPhrases = formEndCallPhrases.split(",").map((p: string) => p.trim()).filter(Boolean);
+        }
+
+        if (formLeadKeywords.trim()) {
+          configData.leadKeywords = formLeadKeywords.split(",").map((p: string) => p.trim()).filter(Boolean);
+        }
+
+        if (formFollowUpKeywords.trim()) {
+          configData.followUpKeywords = formFollowUpKeywords.split(",").map((p: string) => p.trim()).filter(Boolean);
         }
 
         if (formInboundGreeting.trim() || formInboundPrompt.trim()) {
@@ -773,6 +785,14 @@ export default function AgentsPage() {
 
         if (formEndCallPhrases.trim()) {
           configData.endCallPhrases = formEndCallPhrases.split(",").map((p: string) => p.trim()).filter(Boolean);
+        }
+
+        if (formLeadKeywords.trim()) {
+          configData.leadKeywords = formLeadKeywords.split(",").map((p: string) => p.trim()).filter(Boolean);
+        }
+
+        if (formFollowUpKeywords.trim()) {
+          configData.followUpKeywords = formFollowUpKeywords.split(",").map((p: string) => p.trim()).filter(Boolean);
         }
 
         if (formInboundGreeting.trim() || formInboundPrompt.trim()) {
@@ -1809,6 +1829,38 @@ export default function AgentsPage() {
                     />
                     <p className="mt-1 text-[11px] text-zinc-400">
                       Comma‑separated phrases that will automatically end the call.
+                    </p>
+                  </div>
+
+                  {/* Lead Keywords */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-zinc-600 mb-1">
+                      Lead Keywords
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                      value={formLeadKeywords}
+                      onChange={(e) => setFormLeadKeywords(e.target.value)}
+                      placeholder="interested, buy, purchase, quote, pricing, demo"
+                    />
+                    <p className="mt-1 text-[11px] text-zinc-400">
+                      Comma‑separated keywords to identify leads from call transcripts. Calls matching these keywords will appear in the Leads section.
+                    </p>
+                  </div>
+
+                  {/* Follow-Up Keywords */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-zinc-600 mb-1">
+                      Follow-Up Keywords
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                      value={formFollowUpKeywords}
+                      onChange={(e) => setFormFollowUpKeywords(e.target.value)}
+                      placeholder="callback, follow up, call back, remind me, later"
+                    />
+                    <p className="mt-1 text-[11px] text-zinc-400">
+                      Comma‑separated keywords to identify calls requiring follow-up. Calls matching these keywords will appear in the Follow-Ups section.
                     </p>
                   </div>
 

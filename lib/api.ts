@@ -887,6 +887,8 @@ export interface AgentConfig {
     enabled: boolean;
     keywords?: string[];
   };
+  leadKeywords?: string[];  // Keywords to identify leads from call transcripts
+  followUpKeywords?: string[];  // Keywords to identify calls requiring follow-up
 }
 
 export interface BackendAgent {

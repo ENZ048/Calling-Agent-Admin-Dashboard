@@ -889,6 +889,7 @@ export interface BackendAgent {
   id: string;
   name: string;
   description: string;
+  gender?: 'male' | 'female';
   role: string;
   virtualNumber: string;
   userName: string;
@@ -963,6 +964,7 @@ export async function fetchAgentDetail(id: string): Promise<BackendAgent> {
 export async function createAgentAPI(agentData: {
   name: string;
   description?: string;
+  gender?: 'male' | 'female';
   config: {
     prompt: string;
     greetingMessage: string;
@@ -1011,6 +1013,7 @@ export async function createAgentAPI(agentData: {
       id: agent.id,
       name: agent.name,
       description: agent.description || '',
+      gender: agent.gender,
       role: agent.description?.split(' ')[0] || 'Custom',
       virtualNumber: '',
       userName: '',
@@ -1035,9 +1038,18 @@ export async function updateAgentAPI(
   agentData: Partial<{
     name: string;
     description: string;
+    gender: 'male' | 'female';
     config: Partial<AgentConfig>;
   }>
 ): Promise<BackendAgent> {
+  // DEBUG: Log what we're sending to the server
+  console.log('========== UPDATE AGENT API CALL ==========');
+  console.log('Agent ID:', agentId);
+  console.log('Agent Data:', JSON.stringify(agentData, null, 2));
+  console.log('Gender being sent:', agentData.gender);
+  console.log('URL:', `${API_BASE_URL}/api/v1/dashboard/agents/${agentId}`);
+  console.log('============================================');
+
   const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/agents/${agentId}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
@@ -1060,6 +1072,7 @@ export async function updateAgentAPI(
       id: agent.id,
       name: agent.name,
       description: agent.description || '',
+      gender: agent.gender,
       role: agent.description?.split(' ')[0] || 'Custom',
       virtualNumber: '',
       userName: '',

@@ -4,7 +4,7 @@
  */
 
 // Set this to 'development' for localhost or 'production' for live server
-const ENV_MODE: 'development' | 'production' = 'development';
+const ENV_MODE: 'development' | 'production' = 'production';
 
 const CONFIG = {
   development: {
@@ -12,8 +12,8 @@ const CONFIG = {
     WS_URL: 'ws://localhost:5000/ws/dashboard',
   },
   production: {
-    API_BASE_URL: 'http://localhost:5000',
-    WS_URL: 'ws://localhost:5000/ws/dashboard',
+    API_BASE_URL: 'https://calling-api.0804.in',
+    WS_URL: 'wss://calling-api.0804.in/ws/dashboard',
   },
 };
 

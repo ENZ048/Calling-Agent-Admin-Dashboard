@@ -904,6 +904,7 @@ export interface BackendAgent {
   totalCalls: number;
   totalDurationSec: number;
   isActive: boolean;
+  useDirectionSpecificKnowledgeBase?: boolean;
   config: AgentConfig;
   createdAt: string;
   updatedAt: string;
@@ -1162,6 +1163,7 @@ export interface KnowledgeBaseDocument {
   fileType: 'pdf' | 'docx' | 'txt';
   fileSize: number;
   status: 'processing' | 'ready' | 'failed';
+  callDirection: 'inbound' | 'outbound' | 'both';
   totalChunks: number;
   totalTokens: number;
   totalCharacters: number;
@@ -1187,10 +1189,15 @@ export interface KnowledgeBaseListResponse {
 /**
  * Upload a knowledge base document for an agent
  */
-export async function uploadKnowledgeBaseDocument(agentId: string, file: File): Promise<{ documentId: string; fileName: string; status: string }> {
+export async function uploadKnowledgeBaseDocument(
+  agentId: string,
+  file: File,
+  callDirection: 'inbound' | 'outbound' | 'both' = 'both'
+): Promise<{ documentId: string; fileName: string; status: string }> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('agentId', agentId);
+  formData.append('callDirection', callDirection);
 
   const token = localStorage.getItem('authToken') || localStorage.getItem('token');
   const response = await fetch(`${API_BASE_URL}/api/v1/knowledge-base/upload`, {

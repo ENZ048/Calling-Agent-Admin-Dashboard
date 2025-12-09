@@ -241,6 +241,7 @@ export default function AgentsPage() {
   const [kbDocuments, setKbDocuments] = useState<any[]>([]);
   const [kbLoading, setKbLoading] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [useDirectionSpecificKB, setUseDirectionSpecificKB] = useState(false);
 
   // Test Call state
   const [phones, setPhones] = useState<PhoneType[]>([]);
@@ -257,6 +258,21 @@ export default function AgentsPage() {
   useEffect(() => {
     loadAgents();
   }, []);
+
+  // Auto-refresh knowledge base when there are processing documents
+  useEffect(() => {
+    if (!selectedId) return;
+
+    const hasProcessingDocs = kbDocuments.some(doc => doc.status === 'processing');
+
+    if (hasProcessingDocs) {
+      const interval = setInterval(() => {
+        loadKnowledgeBase(selectedId);
+      }, 3000); // Refresh every 3 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [selectedId, kbDocuments]);
 
   // Load voices when provider changes
   useEffect(() => {
@@ -536,6 +552,8 @@ export default function AgentsPage() {
     const vmd = agent.config?.voicemailDetection;
     setFormVoicemailEnabled(vmd?.enabled ?? true);
     setFormVoicemailKeywords(vmd?.keywords?.join(", ") || "");
+    // Load direction-specific KB toggle
+    setUseDirectionSpecificKB(agent.useDirectionSpecificKnowledgeBase || false);
   };
 
   const openCreate = () => {
@@ -576,7 +594,10 @@ export default function AgentsPage() {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    callDirection: 'inbound' | 'outbound' | 'both' = 'both'
+  ) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -681,7 +702,7 @@ export default function AgentsPage() {
         return;
       }
 
-      await uploadKnowledgeBaseDocument(agentId, file);
+      await uploadKnowledgeBaseDocument(agentId, file, callDirection);
       toast.success("Document uploaded successfully! Processing in background...");
       await loadKnowledgeBase(agentId);
       event.target.value = '';
@@ -1021,8 +1042,9 @@ export default function AgentsPage() {
           name: formName.trim(),
           description: formDescription.trim() || undefined,
           gender: formGender,
+          useDirectionSpecificKnowledgeBase: useDirectionSpecificKB,
           config: configData,
-        });
+        } as any);
         toast.success("Agent created successfully");
         // After creating, set the selected ID so knowledge base and test call tabs can work
         setSelectedId(newAgent.id);
@@ -1035,8 +1057,9 @@ export default function AgentsPage() {
           name: formName.trim(),
           description: formDescription.trim(),
           gender: formGender,
+          useDirectionSpecificKnowledgeBase: useDirectionSpecificKB,
           config: configData,
-        });
+        } as any);
         toast.success("Agent updated successfully");
       }
 
@@ -1575,38 +1598,132 @@ export default function AgentsPage() {
                     </div>
                   </div>
 
-                  {/* Info banner */}
-                  <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
-                    <p className="font-medium mb-0.5">📚 Upload Documents</p>
-                    <p>Upload PDF, DOCX, or TXT files (max 100MB) to provide your agent with specific knowledge. Documents are processed in the background. {!selectedId && mode === "create" && "The agent will be created automatically when you upload a document."}</p>
-                  </div>
-
-                  {/* File Upload */}
-                  <div className="flex items-center gap-3">
-                    <label className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 cursor-pointer transition-colors">
-                      {uploadingFile ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-3.5 w-3.5 mr-2" />
-                          Upload Document
-                        </>
-                      )}
+                  {/* Direction-Specific Toggle */}
+                  <div className="rounded-lg border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 p-4">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                          <BookOpen className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-purple-900">Enable Call Direction-Specific Knowledge Base</p>
+                          <p className="text-[11px] text-purple-700 mt-0.5">Upload different documents for incoming and outgoing calls</p>
+                        </div>
+                      </div>
                       <input
-                        type="file"
-                        accept=".pdf,.docx,.txt"
-                        onChange={handleFileUpload}
-                        disabled={uploadingFile}
-                        className="hidden"
+                        type="checkbox"
+                        checked={useDirectionSpecificKB}
+                        onChange={(e) => setUseDirectionSpecificKB(e.target.checked)}
+                        className="h-5 w-5 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
                       />
                     </label>
-                    <p className="text-[11px] text-zinc-500">
-                      PDF, DOCX, or TXT (max 100MB)
-                    </p>
                   </div>
+
+                  {/* Conditional Upload Sections */}
+                  {!useDirectionSpecificKB ? (
+                    /* Default Mode: Single Upload Section */
+                    <div className="space-y-3">
+                      <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
+                        <p className="font-medium mb-0.5">📚 Upload Documents</p>
+                        <p>Upload PDF, DOCX, or TXT files (max 100MB) to provide your agent with specific knowledge. Documents are processed in the background (typically 10-60 seconds). The page will auto-refresh while processing. {!selectedId && mode === "create" && "The agent will be created automatically when you upload a document."}</p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <label className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 cursor-pointer transition-colors">
+                          {uploadingFile ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3.5 w-3.5 mr-2" />
+                              Upload Document
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept=".pdf,.docx,.txt"
+                            onChange={(e) => handleFileUpload(e, 'both')}
+                            disabled={uploadingFile}
+                            className="hidden"
+                          />
+                        </label>
+                        <p className="text-[11px] text-zinc-500">
+                          PDF, DOCX, or TXT (max 100MB)
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Direction-Specific Mode: Separate Upload Sections */
+                    <div className="space-y-4">
+                      {/* Incoming Calls Section */}
+                      <div className="rounded-lg border-2 border-green-200 bg-green-50 p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-green-700">
+                            <span className="text-sm">📥</span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-green-900">Incoming Calls Knowledge Base</p>
+                            <p className="text-[11px] text-green-700">Documents for calls received by your agent</p>
+                          </div>
+                        </div>
+                        <label className="inline-flex items-center justify-center rounded-full border border-green-300 bg-green-100 px-4 py-2 text-xs font-medium text-green-800 hover:bg-green-200 cursor-pointer transition-colors">
+                          {uploadingFile ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3.5 w-3.5 mr-2" />
+                              Upload for Incoming
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept=".pdf,.docx,.txt"
+                            onChange={(e) => handleFileUpload(e, 'inbound')}
+                            disabled={uploadingFile}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {/* Outgoing Calls Section */}
+                      <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                            <span className="text-sm">📤</span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-blue-900">Outgoing Calls Knowledge Base</p>
+                            <p className="text-[11px] text-blue-700">Documents for calls initiated by your agent</p>
+                          </div>
+                        </div>
+                        <label className="inline-flex items-center justify-center rounded-full border border-blue-300 bg-blue-100 px-4 py-2 text-xs font-medium text-blue-800 hover:bg-blue-200 cursor-pointer transition-colors">
+                          {uploadingFile ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3.5 w-3.5 mr-2" />
+                              Upload for Outgoing
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept=".pdf,.docx,.txt"
+                            onChange={(e) => handleFileUpload(e, 'outbound')}
+                            disabled={uploadingFile}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Document List */}
                   {selectedId && (
@@ -1638,9 +1755,27 @@ export default function AgentsPage() {
                               <div className="flex items-center space-x-3 flex-1 min-w-0">
                                 <FileText className="h-4 w-4 text-zinc-400 flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-zinc-900 truncate">
-                                    {doc.fileName}
-                                  </p>
+                                  <div className="flex items-center space-x-2">
+                                    <p className="text-xs font-medium text-zinc-900 truncate">
+                                      {doc.fileName}
+                                    </p>
+                                    {/* Direction Badge */}
+                                    {doc.callDirection === 'inbound' && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 border border-green-200">
+                                        📥 Incoming
+                                      </span>
+                                    )}
+                                    {doc.callDirection === 'outbound' && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                        📤 Outgoing
+                                      </span>
+                                    )}
+                                    {doc.callDirection === 'both' && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                        📞 Both
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="flex items-center space-x-3 mt-0.5 text-[10px] text-zinc-500">
                                     <span className="uppercase">{doc.fileType}</span>
                                     <span>{formatFileSize(doc.fileSize)}</span>
@@ -1665,7 +1800,7 @@ export default function AgentsPage() {
                                   {getStatusIcon(doc.status)}
                                   <span className={`text-[10px] font-medium ${
                                     doc.status === 'ready' ? 'text-emerald-600' :
-                                    doc.status === 'processing' ? 'text-yellow-600' :
+                                    doc.status === 'processing' ? 'text-yellow-600 animate-pulse' :
                                     'text-red-600'
                                   }`}>
                                     {doc.status === 'ready' ? 'Ready' :

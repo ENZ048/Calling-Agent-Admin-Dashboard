@@ -1271,6 +1271,7 @@ export interface Phone {
   tags?: string[];
   status?: 'active' | 'inactive';
   isActive?: boolean;
+  concurrentLimit?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1580,6 +1581,30 @@ export async function unassignPhoneFromUserAPI(phoneId: string): Promise<void> {
     const errorMessage = error.message || error.error || error.data?.message || `Failed to unassign phone from user: ${response.statusText}`;
     throw new Error(errorMessage);
   }
+}
+
+/**
+ * Update phone concurrent limit
+ */
+export async function updatePhoneConcurrentLimitAPI(phoneId: string, concurrentLimit: number): Promise<Phone> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/phones/${phoneId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ concurrentLimit }),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      handleAuthError();
+      throw new Error('Authentication required');
+    }
+    const error = await response.json().catch(() => ({ message: 'Failed to update concurrent limit' }));
+    const errorMessage = error.message || error.error || error.data?.message || `Failed to update concurrent limit: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  const result = await response.json();
+  return result.data?.phone || result.data || result;
 }
 
 // Recording API functions

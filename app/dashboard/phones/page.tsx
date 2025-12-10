@@ -19,6 +19,7 @@ import {
   assignAgentToPhoneAPI,
   unassignAgentFromPhoneAPI,
   deletePhoneAPI,
+  updatePhoneConcurrentLimitAPI,
   Phone as PhoneType,
   BackendAgent,
   ImportPhoneRequest,
@@ -271,6 +272,12 @@ export default function PhonesPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Concurrent Limit */}
+              <ConcurrentLimitInput
+                phone={phone}
+                onUpdate={loadData}
+              />
             </motion.div>
           ))}
         </div>
@@ -751,6 +758,108 @@ function AssignAgentModal({
           )}
         </form>
       </motion.div>
+    </div>
+  );
+}
+
+// Concurrent Limit Input Component
+function ConcurrentLimitInput({
+  phone,
+  onUpdate,
+}: {
+  phone: PhoneType;
+  onUpdate: () => void;
+}) {
+  const toast = useToast();
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [value, setValue] = useState(phone.concurrentLimit || 1);
+
+  const handleSave = async () => {
+    if (value < 1) {
+      toast.warning("Concurrent limit must be at least 1");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await updatePhoneConcurrentLimitAPI(phone._id, value);
+      toast.success(`Concurrent limit updated to ${value}`);
+      setIsEditing(false);
+      await onUpdate();
+    } catch (err: any) {
+      console.error("Error updating concurrent limit:", err);
+      toast.warning(err.message || "Failed to update concurrent limit");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setValue(phone.concurrentLimit || 1);
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="pt-3 border-t border-zinc-200">
+      <div className="flex items-center justify-between text-xs mb-2">
+        <span className="text-zinc-600">Concurrent Calls:</span>
+        {!isEditing ? (
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-zinc-900">{phone.concurrentLimit || 2}</span>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="text-emerald-600 hover:text-emerald-700 text-[10px] underline"
+            >
+              Edit
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {isEditing && (
+        <div className="space-y-2">
+          <input
+            type="number"
+            min="1"
+            value={value}
+            onChange={(e) => setValue(parseInt(e.target.value) || 1)}
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+            placeholder="Enter concurrent limit"
+            disabled={loading}
+          />
+          <p className="text-[10px] text-zinc-500">
+            Maximum number of simultaneous calls for this phone number (min: 1)
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={loading}
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-emerald-500 px-3 py-1.5 text-[10px] font-medium text-white shadow-sm shadow-emerald-300 hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="h-3 w-3" />
+                  Save
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleCancel}
+              disabled={loading}
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[10px] font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
+            >
+              <X className="h-3 w-3" />
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

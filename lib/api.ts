@@ -1271,7 +1271,9 @@ export interface Phone {
   tags?: string[];
   status?: 'active' | 'inactive';
   isActive?: boolean;
-  concurrentLimit?: number;
+  concurrentLimit?: number;  // DEPRECATED - kept for backward compatibility
+  inboundConcurrentLimit?: number;  // Maximum concurrent incoming calls
+  outboundConcurrentLimit?: number;  // Maximum concurrent outgoing calls
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1586,11 +1588,18 @@ export async function unassignPhoneFromUserAPI(phoneId: string): Promise<void> {
 /**
  * Update phone concurrent limit
  */
-export async function updatePhoneConcurrentLimitAPI(phoneId: string, concurrentLimit: number): Promise<Phone> {
+export async function updatePhoneConcurrentLimitAPI(
+  phoneId: string,
+  limits: {
+    concurrentLimit?: number;
+    inboundConcurrentLimit?: number;
+    outboundConcurrentLimit?: number;
+  }
+): Promise<Phone> {
   const response = await fetch(`${API_BASE_URL}/api/v1/phones/${phoneId}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ concurrentLimit }),
+    body: JSON.stringify(limits),
   });
 
   if (!response.ok) {

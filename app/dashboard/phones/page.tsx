@@ -773,63 +773,101 @@ function ConcurrentLimitInput({
   const toast = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [value, setValue] = useState(phone.concurrentLimit || 1);
+  const [inboundLimit, setInboundLimit] = useState(phone.inboundConcurrentLimit || phone.concurrentLimit || 2);
+  const [outboundLimit, setOutboundLimit] = useState(phone.outboundConcurrentLimit || phone.concurrentLimit || 2);
+
+  // Sync state with phone prop changes
+  useEffect(() => {
+    setInboundLimit(phone.inboundConcurrentLimit || phone.concurrentLimit || 2);
+    setOutboundLimit(phone.outboundConcurrentLimit || phone.concurrentLimit || 2);
+  }, [phone.inboundConcurrentLimit, phone.outboundConcurrentLimit, phone.concurrentLimit]);
 
   const handleSave = async () => {
-    if (value < 1) {
-      toast.warning("Concurrent limit must be at least 1");
+    if (inboundLimit < 1 || outboundLimit < 1) {
+      toast.warning("Concurrent limits must be at least 1");
       return;
     }
 
     setLoading(true);
     try {
-      await updatePhoneConcurrentLimitAPI(phone._id, value);
-      toast.success(`Concurrent limit updated to ${value}`);
+      await updatePhoneConcurrentLimitAPI(phone._id, {
+        inboundConcurrentLimit: inboundLimit,
+        outboundConcurrentLimit: outboundLimit,
+      });
+      toast.success(`Concurrent limits updated`);
       setIsEditing(false);
       await onUpdate();
     } catch (err: any) {
-      console.error("Error updating concurrent limit:", err);
-      toast.warning(err.message || "Failed to update concurrent limit");
+      console.error("Error updating concurrent limits:", err);
+      toast.warning(err.message || "Failed to update concurrent limits");
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = () => {
-    setValue(phone.concurrentLimit || 1);
+    setInboundLimit(phone.inboundConcurrentLimit || phone.concurrentLimit || 2);
+    setOutboundLimit(phone.outboundConcurrentLimit || phone.concurrentLimit || 2);
     setIsEditing(false);
   };
 
   return (
     <div className="pt-3 border-t border-zinc-200">
       <div className="flex items-center justify-between text-xs mb-2">
-        <span className="text-zinc-600">Concurrent Calls:</span>
+        <span className="text-zinc-600">Concurrent Limits:</span>
         {!isEditing ? (
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-zinc-900">{phone.concurrentLimit || 2}</span>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="text-emerald-600 hover:text-emerald-700 text-[10px] underline"
-            >
-              Edit
-            </button>
-          </div>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="text-emerald-600 hover:text-emerald-700 text-[10px] underline"
+          >
+            Edit
+          </button>
         ) : null}
       </div>
 
+      {!isEditing && (
+        <div className="grid grid-cols-2 gap-3 text-[10px]">
+          <div className="space-y-1">
+            <span className="text-zinc-500">Inbound:</span>
+            <div className="font-medium text-zinc-900">{phone.inboundConcurrentLimit || phone.concurrentLimit || 2}</div>
+          </div>
+          <div className="space-y-1">
+            <span className="text-zinc-500">Outbound:</span>
+            <div className="font-medium text-zinc-900">{phone.outboundConcurrentLimit || phone.concurrentLimit || 2}</div>
+          </div>
+        </div>
+      )}
+
       {isEditing && (
-        <div className="space-y-2">
-          <input
-            type="number"
-            min="1"
-            value={value}
-            onChange={(e) => setValue(parseInt(e.target.value) || 1)}
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
-            placeholder="Enter concurrent limit"
-            disabled={loading}
-          />
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] text-zinc-600 font-medium">Inbound Calls</label>
+              <input
+                type="number"
+                min="1"
+                value={inboundLimit}
+                onChange={(e) => setInboundLimit(parseInt(e.target.value) || 1)}
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                placeholder="2"
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] text-zinc-600 font-medium">Outbound Calls</label>
+              <input
+                type="number"
+                min="1"
+                value={outboundLimit}
+                onChange={(e) => setOutboundLimit(parseInt(e.target.value) || 1)}
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                placeholder="2"
+                disabled={loading}
+              />
+            </div>
+          </div>
           <p className="text-[10px] text-zinc-500">
-            Maximum number of simultaneous calls for this phone number (min: 1)
+            Set maximum simultaneous calls for each direction (min: 1)
           </p>
           <div className="flex gap-2">
             <button

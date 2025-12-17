@@ -1716,6 +1716,7 @@ export interface AppointmentBookingSettings {
     nameQuestion: string;
     dateQuestion: string;
     timeQuestion: string;
+    reasonQuestion: string;
     confirmationQuestion: string;
   };
   successMessage: string;

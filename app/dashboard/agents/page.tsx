@@ -3288,7 +3288,7 @@ export default function AgentsPage() {
                           onChange={(e) => setFormAppointmentSuccessMessage(e.target.value)}
                           className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
                         />
-                        <p className="mt-1 text-[10px] text-zinc-400">Use placeholders: [name], [date], [time], [phone]</p>
+                        <p className="mt-1 text-[10px] text-zinc-400">Use placeholders: [name], [date], [time], [phone], [reason]</p>
                       </div>
 
                       {/* Slot Management */}

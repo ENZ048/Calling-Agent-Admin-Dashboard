@@ -822,8 +822,8 @@ export default function AgentsPage() {
       setFormAppointmentKeywords(mergedKeywords);
       setFormAppointmentDefaultKeywords(defaultKeywords);
       setFormAppointmentNameQuestion(settings.questions?.nameQuestion || "What's your name?");
-      setFormAppointmentDateQuestion(settings.questions?.dateQuestion || "What date would you like to schedule the appointment?");
-      setFormAppointmentTimeQuestion(settings.questions?.timeQuestion || "What time works for you?");
+      setFormAppointmentDateQuestion(settings.questions?.dateQuestion || "What date would you like to schedule the appointment? Our available hours are [timeRange].");
+      setFormAppointmentTimeQuestion(settings.questions?.timeQuestion || "What time works for you? We're available from [startTime] to [endTime].");
       setFormAppointmentReasonQuestion(settings.questions?.reasonQuestion || "What is the reason for this appointment?");
       setFormAppointmentConfirmationQuestion(settings.questions?.confirmationQuestion || "I've booked your appointment for [date] at [time]. Is this correct?");
       setFormAppointmentSuccessMessage(settings.successMessage || "Great! Your appointment is confirmed for [date] at [time]. We'll see you then!");
@@ -3249,6 +3249,7 @@ export default function AgentsPage() {
                             onChange={(e) => setFormAppointmentDateQuestion(e.target.value)}
                             className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
                           />
+                          <p className="mt-1 text-[10px] text-zinc-400">Tip: Use [startTime], [endTime], or [timeRange] to show available hours</p>
                         </div>
                         <div>
                           <label className="block text-[11px] font-medium text-zinc-600 mb-1">Time Question</label>
@@ -3258,6 +3259,7 @@ export default function AgentsPage() {
                             onChange={(e) => setFormAppointmentTimeQuestion(e.target.value)}
                             className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
                           />
+                          <p className="mt-1 text-[10px] text-zinc-400">Tip: Use [startTime], [endTime], or [timeRange] to show available hours</p>
                         </div>
                         <div>
                           <label className="block text-[11px] font-medium text-zinc-600 mb-1">Reason Question</label>
@@ -3288,7 +3290,7 @@ export default function AgentsPage() {
                           onChange={(e) => setFormAppointmentSuccessMessage(e.target.value)}
                           className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
                         />
-                        <p className="mt-1 text-[10px] text-zinc-400">Use placeholders: [name], [date], [time], [phone], [reason]</p>
+                        <p className="mt-1 text-[10px] text-zinc-400">Use placeholders: [name], [date], [time], [phone], [reason], [startTime], [endTime], [timeRange]</p>
                       </div>
 
                       {/* Slot Management */}

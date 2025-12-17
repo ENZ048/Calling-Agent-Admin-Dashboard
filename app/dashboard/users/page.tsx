@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Plus, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
+import { Users, Plus, ToggleLeft, ToggleRight, Loader2, Shield } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useUsersStore } from "@/lib/users";
 import { useToast } from "@/lib/toast";
-import { fetchPhones, assignPhoneToUserAPI, unassignPhoneFromUserAPI, Phone } from "@/lib/api";
+import { fetchPhones, assignPhoneToUserAPI, unassignPhoneFromUserAPI, Phone, getUserPermissionsAPI, updateUserPermissionsAPI, UserPermissions, DEFAULT_USER_PERMISSIONS } from "@/lib/api";
 
 export default function UsersPage() {
   const toast = useToast();
@@ -120,6 +120,14 @@ export default function UsersPage() {
   const [availablePhones, setAvailablePhones] = useState<Phone[]>([]);
   const [assigningPhoneUserId, setAssigningPhoneUserId] = useState<number | null>(null);
   const [loadingPhones, setLoadingPhones] = useState(false);
+
+  // Permissions modal state
+  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
+  const [permissionsUserId, setPermissionsUserId] = useState<number | null>(null);
+  const [permissionsUserName, setPermissionsUserName] = useState("");
+  const [currentPermissions, setCurrentPermissions] = useState<UserPermissions>(DEFAULT_USER_PERMISSIONS);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const [savingPermissions, setSavingPermissions] = useState(false);
 
   // State for phone action confirmation
   const [pendingPhoneAction, setPendingPhoneAction] = useState<{
@@ -268,6 +276,80 @@ export default function UsersPage() {
     setIsCreditsModalOpen(false);
     setCreditsUserId(null);
     setCreditsAmount("");
+  };
+
+  // Permissions modal functions
+  const openPermissionsModal = async (user: any) => {
+    if (!user.backendId) {
+      toast.error("User not found");
+      return;
+    }
+
+    setPermissionsUserId(user.id);
+    setPermissionsUserName(user.fullName);
+    setLoadingPermissions(true);
+    setIsPermissionsModalOpen(true);
+
+    try {
+      const result = await getUserPermissionsAPI(user.backendId);
+      setCurrentPermissions(result.permissions);
+    } catch (error: any) {
+      console.error("Failed to load permissions:", error);
+      toast.error(error.message || "Failed to load permissions");
+      setCurrentPermissions(DEFAULT_USER_PERMISSIONS);
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
+  const handlePermissionChange = (key: keyof UserPermissions, value: boolean) => {
+    setCurrentPermissions((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const savePermissions = async () => {
+    if (!permissionsUserId) return;
+
+    const user = users.find((u) => u.id === permissionsUserId);
+    if (!user || !user.backendId) {
+      toast.error("User not found");
+      return;
+    }
+
+    console.log("Saving permissions for user:", user.backendId);
+    console.log("Permissions to save:", currentPermissions);
+
+    setSavingPermissions(true);
+    try {
+      const result = await updateUserPermissionsAPI(user.backendId, currentPermissions);
+      console.log("Save result:", result);
+      toast.success("Permissions updated successfully");
+      setIsPermissionsModalOpen(false);
+      setPermissionsUserId(null);
+    } catch (error: any) {
+      console.error("Failed to save permissions:", error);
+      toast.error(error.message || "Failed to save permissions");
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
+  // Permission labels for display
+  const permissionLabels: Record<keyof UserPermissions, string> = {
+    dashboard: "Dashboard",
+    leads: "Leads",
+    campaigns: "Campaigns",
+    scheduledCalls: "Scheduled Calls",
+    appointmentBooking: "Appointment Booking",
+    callLogs: "Call Logs",
+    callRecording: "Call Recording",
+    chatSummary: "Chat Summary",
+    liveStatus: "Live Status",
+    analytics: "Analytics",
+    deliveryReports: "Delivery Reports",
+    creditHistory: "Credit History",
   };
 
   return (
@@ -518,6 +600,12 @@ export default function UsersPage() {
                             onSelect={() => openCreditsModal(u, "remove")}
                           >
                             Remove Credits
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Item
+                            className="px-3 py-1.5 cursor-pointer hover:bg-zinc-50 outline-none"
+                            onSelect={() => openPermissionsModal(u)}
+                          >
+                            Permission
                           </DropdownMenu.Item>
                         </DropdownMenu.Content>
                       </DropdownMenu.Portal>
@@ -863,6 +951,117 @@ export default function UsersPage() {
                   ? "Change"
                   : "Assign"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permissions Modal */}
+      {isPermissionsModalOpen && permissionsUserId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white shadow-2xl shadow-black/10 mx-4">
+            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-emerald-600" />
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900">User Permissions</p>
+                  <p className="text-[11px] text-zinc-500">{permissionsUserName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPermissionsModalOpen(false);
+                  setPermissionsUserId(null);
+                }}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-zinc-100"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-zinc-500 mb-4">
+                Control which navigation items this user can see in their dashboard sidebar.
+              </p>
+              {loadingPermissions ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {(Object.keys(permissionLabels) as Array<keyof UserPermissions>).map((key) => (
+                    <label
+                      key={key}
+                      className="flex items-center gap-2 cursor-pointer group"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={currentPermissions[key]}
+                        onChange={(e) => handlePermissionChange(key, e.target.checked)}
+                        className="h-4 w-4 rounded border-zinc-300 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className="text-xs text-zinc-700 group-hover:text-zinc-900">
+                        {permissionLabels[key]}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between border-t border-zinc-200 px-5 py-3">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPermissions(DEFAULT_USER_PERMISSIONS)}
+                  className="text-[11px] text-emerald-600 hover:text-emerald-700 hover:underline"
+                >
+                  Enable All
+                </button>
+                <span className="text-zinc-300">|</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPermissions({
+                      dashboard: false,
+                      leads: false,
+                      campaigns: false,
+                      scheduledCalls: false,
+                      appointmentBooking: false,
+                      callLogs: false,
+                      callRecording: false,
+                      chatSummary: false,
+                      liveStatus: false,
+                      analytics: false,
+                      deliveryReports: false,
+                      creditHistory: false,
+                    })
+                  }
+                  className="text-[11px] text-zinc-500 hover:text-zinc-700 hover:underline"
+                >
+                  Disable All
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPermissionsModalOpen(false);
+                    setPermissionsUserId(null);
+                  }}
+                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={savePermissions}
+                  disabled={savingPermissions || loadingPermissions}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2 text-[11px] font-medium text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingPermissions && <Loader2 className="h-3 w-3 animate-spin" />}
+                  Save Permissions
+                </button>
+              </div>
             </div>
           </div>
         </div>

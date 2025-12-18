@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Plus, ToggleLeft, ToggleRight, Loader2, Shield } from "lucide-react";
+import { Users, Plus, ToggleLeft, ToggleRight, Loader2, Shield, Mail, X, Eye, EyeOff } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useUsersStore } from "@/lib/users";
 import { useToast } from "@/lib/toast";
@@ -137,6 +137,72 @@ export default function UsersPage() {
     newPhoneNumber?: string;
   } | null>(null);
 
+  // Email template state
+  const [isEmailTemplateOpen, setIsEmailTemplateOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("userEmailTemplateSubject") || "Welcome to {{company_name}} - Your Account Details";
+    }
+    return "Welcome to {{company_name}} - Your Account Details";
+  });
+  const [emailBody, setEmailBody] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("userEmailTemplateBody") || `Hi {{name}},
+
+Welcome to our platform! Your account has been created successfully.
+
+Here are your account details:
+
+Email: {{email}}
+Password: {{password}}
+Company: {{company_name}}
+Plan: {{plan}}
+Role: {{role}}
+Credits: {{credits}}
+Status: {{status}}
+Expiry Date: {{expiry_date}}
+
+You can login at: {{login_url}}
+
+If you have any questions, please don't hesitate to contact us.
+
+Best regards,
+The Team`;
+    }
+    return `Hi {{name}},
+
+Welcome to our platform! Your account has been created successfully.
+
+Here are your account details:
+
+Email: {{email}}
+Password: {{password}}
+Company: {{company_name}}
+Plan: {{plan}}
+Role: {{role}}
+Credits: {{credits}}
+Status: {{status}}
+Expiry Date: {{expiry_date}}
+
+You can login at: {{login_url}}
+
+If you have any questions, please don't hesitate to contact us.
+
+Best regards,
+The Team`;
+  });
+
+  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const saveEmailTemplate = () => {
+    localStorage.setItem("userEmailTemplateSubject", emailSubject);
+    localStorage.setItem("userEmailTemplateBody", emailBody);
+    toast.success("Email template saved successfully");
+    setIsEmailTemplateOpen(false);
+  };
+
   const resetForm = () => {
     setFullName("");
     setUserName("");
@@ -179,21 +245,37 @@ export default function UsersPage() {
         fullName.toLowerCase().replace(/\s+/g, "");
 
       if (editingUserId == null) {
-        await createUser({
-          fullName,
-          userName: baseUserName,
-          email,
-          company,
-          mobile,
-          role,
-          plan: plan, // Include plan
-          credit: Number(creditLimit || 0),
-          status: isActive ? "active" : "inactive",
-          virtualNumbers: [],
-          password: password, // Required for creation
-          expiryDate: expiryDate || undefined,
-        });
-        toast.success("User created successfully");
+        const result = await createUser(
+          {
+            fullName,
+            userName: baseUserName,
+            email,
+            company,
+            mobile,
+            role,
+            plan: plan, // Include plan
+            credit: Number(creditLimit || 0),
+            status: isActive ? "active" : "inactive",
+            virtualNumbers: [],
+            password: password, // Required for creation
+            expiryDate: expiryDate || undefined,
+          },
+          {
+            sendWelcomeEmail,
+            emailTemplate: {
+              subject: emailSubject,
+              body: emailBody,
+            },
+          }
+        );
+        
+        if (result.emailSent) {
+          toast.success("User created and welcome email sent successfully");
+        } else if (sendWelcomeEmail && result.emailError) {
+          toast.warning(`User created but email failed: ${result.emailError}`);
+        } else {
+          toast.success("User created successfully");
+        }
       } else {
         const updates: any = {
           fullName,
@@ -365,14 +447,24 @@ export default function UsersPage() {
             Create portal users and manage their credits.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-        >
-          <Plus className="h-4 w-4" />
-          Create User
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsEmailTemplateOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            <Mail className="h-4 w-4" />
+            Email Template
+          </button>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+          >
+            <Plus className="h-4 w-4" />
+            Create User
+          </button>
+        </div>
       </div>
       {/* Users table */}
       <div className="glass-panel overflow-visible relative">
@@ -781,26 +873,66 @@ export default function UsersPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="font-medium text-zinc-600">Password</label>
-                    <input
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      type="password"
-                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
-                      placeholder="Leave blank to keep current password"
-                    />
+                    <div className="relative">
+                      <input
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        type={showPassword ? "text" : "password"}
+                        className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 pr-10 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                        placeholder="Leave blank to keep current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="font-medium text-zinc-600">Confirm Password</label>
-                    <input
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      type="password"
-                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
-                      placeholder="Confirm password"
-                    />
+                    <div className="relative">
+                      <input
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        type={showConfirmPassword ? "text" : "password"}
+                        className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 pr-10 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                        placeholder="Confirm password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Send Welcome Email - Only show for new users */}
+              {!editingUserId && (
+                <div className="pt-2 border-t border-zinc-100">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={sendWelcomeEmail}
+                      onChange={(e) => setSendWelcomeEmail(e.target.checked)}
+                      className="h-4 w-4 rounded border-zinc-300 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-medium text-zinc-700 group-hover:text-zinc-900">
+                        Send welcome email
+                      </span>
+                      <p className="text-[10px] text-zinc-500">
+                        Send login credentials and account details to the user&apos;s email
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
 
             </div>
             <div className="flex justify-end border-t border-zinc-200 px-5 py-3 text-xs gap-2">
@@ -1062,6 +1194,116 @@ export default function UsersPage() {
                   Save Permissions
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Template Modal */}
+      {isEmailTemplateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white shadow-2xl shadow-black/10 mx-4 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-emerald-50">
+                  <Mail className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-900">Email Template</h2>
+                  <p className="text-xs text-zinc-500">Configure welcome email for new users</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEmailTemplateOpen(false)}
+                className="p-2 rounded-full hover:bg-zinc-100 text-zinc-500"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* Subject */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1.5">
+                  Email Subject
+                </label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="Welcome to {{company_name}}!"
+                />
+              </div>
+
+              {/* Body */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1.5">
+                  Email Body
+                </label>
+                <textarea
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  rows={14}
+                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono"
+                  placeholder="Hi {{name}},&#10;&#10;Your account has been created..."
+                />
+              </div>
+
+              {/* Available Variables */}
+              <div className="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
+                <p className="text-xs font-medium text-zinc-700 mb-2">Available Variables:</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    "{{name}}",
+                    "{{email}}",
+                    "{{password}}",
+                    "{{company_name}}",
+                    "{{number}}",
+                    "{{plan}}",
+                    "{{role}}",
+                    "{{credits}}",
+                    "{{status}}",
+                    "{{expiry_date}}",
+                    "{{login_url}}",
+                  ].map((variable) => (
+                    <button
+                      key={variable}
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(variable);
+                        toast.success(`Copied ${variable}`);
+                      }}
+                      className="px-2 py-1 text-[11px] font-mono bg-white border border-zinc-200 rounded text-zinc-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors"
+                      title="Click to copy"
+                    >
+                      {variable}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-2">
+                  Click on any variable to copy it to clipboard
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-zinc-200 px-5 py-4 bg-zinc-50 rounded-b-2xl">
+              <button
+                onClick={() => setIsEmailTemplateOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEmailTemplate}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+              >
+                <Mail className="h-4 w-4" />
+                Save Template
+              </button>
             </div>
           </div>
         </div>

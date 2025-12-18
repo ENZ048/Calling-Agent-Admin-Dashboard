@@ -601,19 +601,25 @@ export async function fetchUsers(
 /**
  * Create a new user
  * @param userData - User data to create
- * @returns Created user
+ * @returns Created user and email status
  */
 export async function createUserAPI(userData: {
   name: string;
   email: string;
   password: string;
   companyName?: string;
+  mobileNumber?: string;
   plan?: 'free' | 'basic' | 'professional' | 'enterprise';
   role?: 'user' | 'admin' | 'super_admin';
   credits?: number;
   isActive?: boolean;
   expiryDate?: string;
-}): Promise<BackendUser> {
+  sendWelcomeEmailFlag?: boolean;
+  emailTemplate?: {
+    subject: string;
+    body: string;
+  };
+}): Promise<{ user: BackendUser; emailSent?: boolean; emailError?: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -627,7 +633,11 @@ export async function createUserAPI(userData: {
 
   const result = await response.json();
   if (result.success && result.data?.user) {
-    return result.data.user;
+    return {
+      user: result.data.user,
+      emailSent: result.data.emailSent,
+      emailError: result.data.emailError,
+    };
   }
   throw new Error('Invalid response from server');
 }

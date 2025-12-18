@@ -37,6 +37,7 @@ import {
   fetchAgents,
   createAgentAPI,
   updateAgentAPI,
+  deleteAgentAPI,
   fetchVoices,
   BackendAgent,
   VoiceOption,
@@ -606,6 +607,31 @@ export default function AgentsPage() {
       loadKnowledgeBase(agentId);
       loadPhones();
     }
+  };
+
+  // Delete agent handler
+  const handleDeleteAgent = (agentId: string, agentName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click from opening update modal
+    toast.confirm({
+      message: `Are you sure you want to delete "${agentName}"? This action cannot be undone.`,
+      confirmText: "Yes, Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        try {
+          await deleteAgentAPI(agentId);
+          toast.success(`Agent "${agentName}" deleted successfully`);
+          // Refresh agents list
+          await loadAgents();
+          // Close modal if the deleted agent was selected
+          if (selectedId === agentId) {
+            setIsOpen(false);
+            setSelectedId(null);
+          }
+        } catch (err: any) {
+          toast.error(err.message || "Failed to delete agent");
+        }
+      },
+    });
   };
 
   // Knowledge Base functions
@@ -1274,10 +1300,31 @@ export default function AgentsPage() {
                     <p className="text-sm font-semibold text-zinc-900">
                       {agent.name} · {agent.role || "Custom"}
                     </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(agent.id);
+                        toast.success("Agent ID copied to clipboard");
+                      }}
+                      className="text-[10px] text-zinc-400 font-mono mt-0.5 hover:text-emerald-600 cursor-pointer transition-colors"
+                      title="Click to copy ID"
+                    >
+                      ID: {agent.id}
+                    </button>
                   </div>
-                  <span className="text-[11px] rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
-                    {agent.successRate.toFixed(1)}% success
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                      {agent.successRate.toFixed(1)}% success
+                    </span>
+                    <button
+                      onClick={(e) => handleDeleteAgent(agent.id, agent.name, e)}
+                      className="p-1.5 rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      title="Delete agent"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-1.5 text-zinc-600">

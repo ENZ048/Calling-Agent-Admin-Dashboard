@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { PhoneCall, Loader2, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatCredits, formatDuration } from "@/lib/utils";
-import { fetchCallLogs, fetchCallLogDetail, CallLogListItem, CallLogDetail, CallLogsFilters, getRecordingPresignedUrl, getRecordingDownloadUrl } from "@/lib/api";
+import { fetchCallLogs, fetchCallLogDetail, CallLogListItem, CallLogDetail, CallLogsFilters } from "@/lib/api";
 import { AudioPlayer } from "@/components/calls/AudioPlayer";
 import { useToast } from "@/lib/toast";
 
@@ -17,7 +17,6 @@ export default function CallsPage() {
   const [selectedCall, setSelectedCall] = useState<CallLogDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
-  const [loadingRecordingUrl, setLoadingRecordingUrl] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   // Pagination state from server
@@ -86,41 +85,14 @@ export default function CallsPage() {
       const detail = await fetchCallLogDetail(callId);
       setSelectedCall(detail);
 
-      // Load recording URL if available (use S3 presigned URL, not raw Exotel URL)
+      // Use recordingUrl directly from call details (same as user dashboard)
       if (detail.recordingUrl) {
-        loadRecordingUrl(callId);
+        setRecordingUrl(detail.recordingUrl);
       }
     } catch (error) {
       console.error("Failed to fetch call detail:", error);
     } finally {
       setLoadingDetail(false);
-    }
-  };
-
-  const loadRecordingUrl = async (callId: string) => {
-    try {
-      setLoadingRecordingUrl(true);
-      // Always try to get S3 presigned URL first (backend will return S3 URL if available)
-      try {
-        const result = await getRecordingPresignedUrl(callId);
-        // Double-check it's not an Exotel URL before setting
-        if (result.url && result.url.includes('recordings.exotel.com')) {
-          console.error("CRITICAL: Backend returned Exotel URL! This should not happen.");
-          throw new Error("Backend returned Exotel URL instead of S3 URL");
-        }
-        setRecordingUrl(result.url);
-      } catch (error: any) {
-        console.warn('Failed to get S3 presigned URL, falling back to proxy:', error.message);
-        // Fallback to proxy URL if S3 is not available
-        // This endpoint downloads from Exotel and serves it (doesn't redirect to Exotel)
-        const downloadUrl = getRecordingDownloadUrl(callId);
-        setRecordingUrl(downloadUrl);
-      }
-    } catch (error: any) {
-      console.error("Failed to load recording URL:", error);
-      setRecordingUrl(null);
-    } finally {
-      setLoadingRecordingUrl(false);
     }
   };
 
@@ -522,24 +494,9 @@ export default function CallsPage() {
                       <p className="text-zinc-500 italic">No transcript available</p>
                     )}
                   </div>
-                  {selectedCall.recordingUrl && (
+                  {recordingUrl && (
                     <div className="mt-3">
-                      {loadingRecordingUrl ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
-                          <span className="ml-2 text-xs text-zinc-500">Loading recording...</span>
-                        </div>
-                      ) : recordingUrl && !recordingUrl.includes('recordings.exotel.com') ? (
-                        <AudioPlayer src={recordingUrl} />
-                      ) : recordingUrl && recordingUrl.includes('recordings.exotel.com') ? (
-                        <div className="py-4 text-center text-xs text-red-500">
-                          Error: Cannot play Exotel URL directly. S3 upload may be pending.
-                        </div>
-                      ) : (
-                        <div className="py-4 text-center text-xs text-zinc-500">
-                          Failed to load recording URL
-                        </div>
-                      )}
+                      <AudioPlayer src={recordingUrl} />
                     </div>
                   )}
                 </div>

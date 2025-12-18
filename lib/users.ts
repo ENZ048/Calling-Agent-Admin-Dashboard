@@ -29,7 +29,13 @@ type UsersState = {
   loading: boolean;
   error: string | null;
   loadUsers: () => Promise<void>;
-  createUser: (user: Omit<DashboardUser, "id" | "linkedAgents"> & { password: string }) => Promise<DashboardUser>;
+  createUser: (
+    user: Omit<DashboardUser, "id" | "linkedAgents"> & { password: string },
+    options?: {
+      sendWelcomeEmail?: boolean;
+      emailTemplate?: { subject: string; body: string };
+    }
+  ) => Promise<{ user: DashboardUser; emailSent?: boolean; emailError?: string }>;
   updateUser: (id: number, updates: Partial<DashboardUser> & { password?: string }) => Promise<void>;
   deleteUser: (id: number) => Promise<void>;
   assignVirtualNumber: (userId: number, num: string) => void;
@@ -158,7 +164,7 @@ export const useUsersStore = create<UsersState>((set, get) => ({
     }
   },
 
-  createUser: async (payload) => {
+  createUser: async (payload, options) => {
     try {
       // Map frontend format to backend format
       const backendRole = parseRole(payload.role);
@@ -176,20 +182,27 @@ export const useUsersStore = create<UsersState>((set, get) => ({
         email: payload.email,
         password: payload.password, // Required for creation
         companyName: payload.company || undefined,
+        mobileNumber: payload.mobile || undefined,
         plan: backendPlan,
         role: backendRole,
         credits: payload.credit || 0,
         isActive: payload.status === "active",
         expiryDate: payload.expiryDate || undefined,
+        sendWelcomeEmailFlag: options?.sendWelcomeEmail || false,
+        emailTemplate: options?.emailTemplate,
       };
 
-      const createdUser = await createUserAPI(backendData);
-      const mappedUser = mapBackendUserToDashboard(createdUser, 0);
+      const result = await createUserAPI(backendData);
+      const mappedUser = mapBackendUserToDashboard(result.user, 0);
       
       // Reload users to get the latest list
       await get().loadUsers();
       
-      return mappedUser;
+      return {
+        user: mappedUser,
+        emailSent: result.emailSent,
+        emailError: result.emailError,
+      };
     } catch (error) {
       console.error("Error creating user:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to create user";

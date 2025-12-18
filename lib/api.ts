@@ -1586,6 +1586,109 @@ export async function unassignPhoneFromUserAPI(phoneId: string): Promise<void> {
   }
 }
 
+// User Permissions types and functions
+export interface UserPermissions {
+  dashboard: boolean;
+  leads: boolean;
+  campaigns: boolean;
+  scheduledCalls: boolean;
+  appointmentBooking: boolean;
+  callLogs: boolean;
+  callRecording: boolean;
+  chatSummary: boolean;
+  liveStatus: boolean;
+  analytics: boolean;
+  deliveryReports: boolean;
+  creditHistory: boolean;
+}
+
+export const DEFAULT_USER_PERMISSIONS: UserPermissions = {
+  dashboard: true,
+  leads: true,
+  campaigns: true,
+  scheduledCalls: true,
+  appointmentBooking: true,
+  callLogs: true,
+  callRecording: true,
+  chatSummary: true,
+  liveStatus: true,
+  analytics: true,
+  deliveryReports: true,
+  creditHistory: true,
+};
+
+/**
+ * Get user permissions
+ * @param userId - User ID (MongoDB _id)
+ * @returns User permissions object
+ */
+export async function getUserPermissionsAPI(userId: string): Promise<{
+  userId: string;
+  name: string;
+  email: string;
+  permissions: UserPermissions;
+}> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/permissions`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      handleAuthError();
+      throw new Error('Authentication required');
+    }
+    const error = await response.json().catch(() => ({ message: 'Failed to fetch user permissions' }));
+    throw new Error(error.message || `Failed to fetch user permissions: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  if (result.success && result.data) {
+    return result.data;
+  }
+  throw new Error('Invalid response from server');
+}
+
+/**
+ * Update user permissions
+ * @param userId - User ID (MongoDB _id)
+ * @param permissions - Permissions object to update
+ * @returns Updated permissions
+ */
+export async function updateUserPermissionsAPI(
+  userId: string,
+  permissions: Partial<UserPermissions>
+): Promise<{ userId: string; permissions: UserPermissions }> {
+  console.log('[API] Updating permissions for user:', userId);
+  console.log('[API] Request body:', JSON.stringify({ permissions }, null, 2));
+  console.log('[API] URL:', `${API_BASE_URL}/api/v1/users/${userId}/permissions`);
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/permissions`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ permissions }),
+  });
+
+  console.log('[API] Response status:', response.status);
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      handleAuthError();
+      throw new Error('Authentication required');
+    }
+    const error = await response.json().catch(() => ({ message: 'Failed to update user permissions' }));
+    console.error('[API] Error response:', error);
+    throw new Error(error.message || `Failed to update user permissions: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  console.log('[API] Success response:', result);
+  
+  if (result.success && result.data) {
+    return result.data;
+  }
+  throw new Error('Invalid response from server');
+}
+
 /**
  * Update phone concurrent limit
  */
@@ -1717,6 +1820,7 @@ export interface AppointmentBookingSettings {
     nameQuestion: string;
     dateQuestion: string;
     timeQuestion: string;
+    reasonQuestion: string;
     confirmationQuestion: string;
   };
   successMessage: string;

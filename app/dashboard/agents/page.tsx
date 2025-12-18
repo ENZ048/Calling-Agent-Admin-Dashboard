@@ -27,6 +27,7 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
+  Calendar,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatNumber } from "@/lib/utils";
@@ -46,6 +47,8 @@ import {
   initiateOutboundCall,
   KnowledgeBaseDocument,
   Phone as PhoneType,
+  getAppointmentSettings,
+  updateAppointmentSettings,
 } from "@/lib/api";
 
 // Default voicemail keywords (matching backend defaults)
@@ -237,6 +240,23 @@ export default function AgentsPage() {
   const [formVoicemailKeywords, setFormVoicemailKeywords] = useState("");
   const [showDefaultKeywords, setShowDefaultKeywords] = useState(false);
 
+  // Appointment Booking settings
+  const [formAppointmentEnabled, setFormAppointmentEnabled] = useState(false);
+  const [formAppointmentKeywords, setFormAppointmentKeywords] = useState<string[]>([]);
+  const [formAppointmentNewKeyword, setFormAppointmentNewKeyword] = useState("");
+  const [formAppointmentDefaultKeywords, setFormAppointmentDefaultKeywords] = useState<{ language: string; label: string; keywords: string[] }[]>([]);
+  const [formAppointmentNameQuestion, setFormAppointmentNameQuestion] = useState("What's your name?");
+  const [formAppointmentDateQuestion, setFormAppointmentDateQuestion] = useState("What date would you like to schedule the appointment?");
+  const [formAppointmentTimeQuestion, setFormAppointmentTimeQuestion] = useState("What time works for you?");
+  const [formAppointmentConfirmationQuestion, setFormAppointmentConfirmationQuestion] = useState("I've booked your appointment for [date] at [time]. Is this correct?");
+  const [formAppointmentSuccessMessage, setFormAppointmentSuccessMessage] = useState("Great! Your appointment is confirmed for [date] at [time]. We'll see you then!");
+  const [formAppointmentStartTime, setFormAppointmentStartTime] = useState("09:00");
+  const [formAppointmentEndTime, setFormAppointmentEndTime] = useState("17:00");
+  const [formAppointmentSlotDuration, setFormAppointmentSlotDuration] = useState(30);
+  const [formAppointmentWorkingDays, setFormAppointmentWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [loadingAppointmentSettings, setLoadingAppointmentSettings] = useState(false);
+  const [savingAppointmentSettings, setSavingAppointmentSettings] = useState(false);
+
   // Knowledge Base state
   const [kbDocuments, setKbDocuments] = useState<any[]>([]);
   const [kbLoading, setKbLoading] = useState(false);
@@ -251,7 +271,7 @@ export default function AgentsPage() {
   const [callStatus, setCallStatus] = useState<{ success?: boolean; message?: string } | null>(null);
 
   const [step, setStep] = useState<
-    "basic" | "persona" | "directions" | "voice" | "knowledge" | "settings" | "test"
+    "basic" | "persona" | "directions" | "voice" | "knowledge" | "settings" | "appointment" | "test"
   >("basic");
 
   // Load agents on mount
@@ -537,6 +557,12 @@ export default function AgentsPage() {
     setFormOutboundPrompt(agent.config?.outboundConfig?.prompt || "");
     // Load transfer settings
     const ts = agent.config?.transferSettings;
+    console.log("🔍 LOADING TRANSFER SETTINGS:", {
+      transferSettings: ts,
+      enabled: ts?.enabled,
+      enabledType: typeof ts?.enabled,
+      willSet: ts?.enabled || false
+    });
     setFormTransferEnabled(ts?.enabled || false);
     setFormHumanAgentNumber(ts?.humanAgentNumber || "");
     setFormDetectionKeywords(ts?.detectionKeywords?.join(", ") || "human agent, real person, speak to someone, transfer me");
@@ -570,6 +596,8 @@ export default function AgentsPage() {
     setSelectedId(agentId);
     setMode("update");
     loadAgentToForm(agent);
+    // Load appointment settings when opening agent
+    loadAppointmentSettings(agentId);
     setStep("basic");
     setIsOpen(true);
     // Load knowledge base and phones when opening update
@@ -752,6 +780,72 @@ export default function AgentsPage() {
         return <XCircle className="h-4 w-4 text-red-500" />;
       default:
         return <Clock className="h-4 w-4 text-zinc-400" />;
+    }
+  };
+
+  // Helper function to check if a keyword is a default keyword
+  const isDefaultKeyword = (keyword: string, defaultKeywords: { language: string; label: string; keywords: string[] }[]): boolean => {
+    const normalizedKeyword = keyword.toLowerCase().trim();
+    return defaultKeywords.some(group => 
+      group.keywords.some(k => k.toLowerCase().trim() === normalizedKeyword)
+    );
+  };
+
+  // Helper function to get all default keywords as a flat array
+  const getAllDefaultKeywords = (defaultKeywords: { language: string; label: string; keywords: string[] }[]): string[] => {
+    return defaultKeywords.flatMap(group => group.keywords);
+  };
+
+  // Appointment Booking functions
+  const loadAppointmentSettings = async (agentId: string) => {
+    try {
+      setLoadingAppointmentSettings(true);
+      console.log("📥 Loading appointment settings for agent:", agentId);
+      const settings = await getAppointmentSettings(agentId);
+      console.log("✅ Appointment settings loaded:", settings);
+      setFormAppointmentEnabled(settings.enabled || false);
+      
+      // Get default keywords
+      const defaultKeywords = settings.defaultKeywords || [];
+      const allDefaultKeywords = getAllDefaultKeywords(defaultKeywords);
+      
+      // Merge existing keywords with default keywords (avoid duplicates)
+      const existingKeywords = settings.detectionKeywords || [];
+      const mergedKeywords = [...allDefaultKeywords];
+      
+      // Add existing keywords that are not defaults (case-insensitive check)
+      existingKeywords.forEach(keyword => {
+        if (!isDefaultKeyword(keyword, defaultKeywords)) {
+          // Check if it's not already in mergedKeywords (case-insensitive)
+          const normalized = keyword.toLowerCase().trim();
+          if (!mergedKeywords.some(k => k.toLowerCase().trim() === normalized)) {
+            mergedKeywords.push(keyword);
+          }
+        }
+      });
+      
+      setFormAppointmentKeywords(mergedKeywords);
+      setFormAppointmentDefaultKeywords(defaultKeywords);
+      setFormAppointmentNameQuestion(settings.questions?.nameQuestion || "What's your name?");
+      setFormAppointmentDateQuestion(settings.questions?.dateQuestion || "What date would you like to schedule the appointment?");
+      setFormAppointmentTimeQuestion(settings.questions?.timeQuestion || "What time works for you?");
+      setFormAppointmentConfirmationQuestion(settings.questions?.confirmationQuestion || "I've booked your appointment for [date] at [time]. Is this correct?");
+      setFormAppointmentSuccessMessage(settings.successMessage || "Great! Your appointment is confirmed for [date] at [time]. We'll see you then!");
+      setFormAppointmentStartTime(settings.slots?.startTime || "09:00");
+      setFormAppointmentEndTime(settings.slots?.endTime || "17:00");
+      setFormAppointmentSlotDuration(settings.slots?.slotDurationMinutes || 30);
+      setFormAppointmentWorkingDays(settings.slots?.workingDays || [1, 2, 3, 4, 5]);
+    } catch (error: any) {
+      console.error("❌ Error loading appointment settings:", error);
+      // If settings don't exist yet, that's okay - use defaults
+      if (error.message?.includes("404") || error.message?.includes("not found")) {
+        console.log("ℹ️ No appointment settings found, using defaults");
+        // Settings will use default values already set in state
+      } else {
+        toast.error(error.message || "Failed to load appointment settings");
+      }
+    } finally {
+      setLoadingAppointmentSettings(false);
     }
   };
 
@@ -1061,6 +1155,36 @@ export default function AgentsPage() {
           config: configData,
         } as any);
         toast.success("Agent updated successfully");
+        
+        // Save appointment booking settings if agent was updated
+        if (selectedId) {
+          try {
+            const appointmentSettings = {
+              enabled: formAppointmentEnabled,
+              detectionKeywords: formAppointmentKeywords,
+              questions: {
+                nameQuestion: formAppointmentNameQuestion,
+                dateQuestion: formAppointmentDateQuestion,
+                timeQuestion: formAppointmentTimeQuestion,
+                confirmationQuestion: formAppointmentConfirmationQuestion,
+              },
+              successMessage: formAppointmentSuccessMessage,
+              slots: {
+                startTime: formAppointmentStartTime,
+                endTime: formAppointmentEndTime,
+                slotDurationMinutes: formAppointmentSlotDuration,
+                workingDays: formAppointmentWorkingDays,
+              },
+            };
+            console.log("💾 Saving appointment settings for agent:", selectedId, appointmentSettings);
+            await updateAppointmentSettings(selectedId, appointmentSettings);
+            console.log("✅ Appointment settings saved successfully");
+          } catch (appointmentError: any) {
+            console.error("❌ Error saving appointment settings:", appointmentError);
+            // Don't fail the whole save if appointment settings fail
+            toast.warning("Agent saved but appointment settings failed to save");
+          }
+        }
       }
 
       // Don't close modal automatically - let user continue with knowledge base/test call
@@ -1243,6 +1367,17 @@ export default function AgentsPage() {
                 label="Call Settings"
                 active={step === "settings"}
                 onClick={() => setStep("settings")}
+              />
+              <StepTab
+                icon={Calendar}
+                label="Appointment Booking"
+                active={step === "appointment"}
+                onClick={() => {
+                  setStep("appointment");
+                  if (selectedId) {
+                    loadAppointmentSettings(selectedId);
+                  }
+                }}
               />
               <StepTab
                 icon={Activity}
@@ -2913,6 +3048,306 @@ export default function AgentsPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+              {step === "appointment" && (
+                <div className="space-y-4 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                      <Calendar className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-900">Appointment Booking</p>
+                      <p className="text-[11px] text-zinc-500">Configure appointment booking for this agent</p>
+                    </div>
+                  </div>
+
+                  {/* Enable Toggle */}
+                  <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+                    <div>
+                      <p className="text-[11px] font-medium text-zinc-900">Enable Appointment Booking</p>
+                      <p className="text-[10px] text-zinc-500">When enabled, AI will detect appointment booking intent during calls</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormAppointmentEnabled(!formAppointmentEnabled)}
+                      className={`relative h-5 w-9 rounded-full transition-colors ${
+                        formAppointmentEnabled ? "bg-emerald-500" : "bg-zinc-300"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                          formAppointmentEnabled ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {formAppointmentEnabled && (
+                    <>
+                      {/* Intent Keywords */}
+                      <div>
+                        <label className="block text-[11px] font-medium text-zinc-600 mb-2">
+                          Intent Keywords
+                        </label>
+                        <p className="text-[11px] text-zinc-400 mb-2">
+                          When user says any of these keywords, appointment booking will be triggered
+                        </p>
+                        {/* Separate Default and Custom Keywords */}
+                        {(() => {
+                          // Split keywords into default and custom
+                          const defaultKeywordsList = formAppointmentDefaultKeywords.length > 0 
+                            ? getAllDefaultKeywords(formAppointmentDefaultKeywords)
+                            : [];
+                          
+                          const defaultKeywordsInList = formAppointmentKeywords.filter(k => 
+                            isDefaultKeyword(k, formAppointmentDefaultKeywords)
+                          );
+                          
+                          const customKeywords = formAppointmentKeywords.filter(k => 
+                            !isDefaultKeyword(k, formAppointmentDefaultKeywords)
+                          );
+
+                          return (
+                            <>
+                              {/* Default Keywords Section */}
+                              {defaultKeywordsInList.length > 0 && (
+                                <div className="mb-4">
+                                  <label className="block text-[11px] font-medium text-zinc-600 mb-2">
+                                    Default Keywords (System) <span className="text-zinc-400 font-normal">- Cannot be removed</span>
+                                  </label>
+                                  <p className="text-[11px] text-zinc-400 mb-3">
+                                    Pre-configured keywords in various Indian languages. These are automatically included and cannot be removed.
+                                  </p>
+                                  <div className="space-y-3 max-h-64 overflow-y-auto border border-zinc-200 rounded-md p-3 bg-zinc-50">
+                                    {formAppointmentDefaultKeywords.map((group, groupIdx) => {
+                                      const groupKeywords = group.keywords.filter(k => 
+                                        defaultKeywordsInList.some(dk => 
+                                          dk.toLowerCase().trim() === k.toLowerCase().trim()
+                                        )
+                                      );
+                                      
+                                      if (groupKeywords.length === 0) return null;
+                                      
+                                      return (
+                                        <div key={groupIdx} className="border-b border-zinc-200 last:border-b-0 pb-2 last:pb-0">
+                                          <p className="text-[10px] font-semibold text-zinc-500 mb-2 uppercase">
+                                            {group.label}
+                                          </p>
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {groupKeywords.map((keyword, keywordIdx) => (
+                                              <span
+                                                key={keywordIdx}
+                                                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] border border-blue-200"
+                                                title="Default keyword - cannot be removed"
+                                              >
+                                                {keyword}
+                                                <span className="text-[8px] bg-blue-100 text-blue-600 px-1 rounded">System</span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Custom Keywords Section */}
+                              <div>
+                                <label className="block text-[11px] font-medium text-zinc-600 mb-2">
+                                  Custom Keywords
+                                </label>
+                                <p className="text-[11px] text-zinc-400 mb-2">
+                                  Add your own custom keywords. These can be added or removed.
+                                </p>
+                                <div className="flex gap-2 mb-2">
+                                  <input
+                                    type="text"
+                                    value={formAppointmentNewKeyword}
+                                    onChange={(e) => setFormAppointmentNewKeyword(e.target.value)}
+                                    onKeyPress={(e) => {
+                                      if (e.key === "Enter" && formAppointmentNewKeyword.trim()) {
+                                        const normalized = formAppointmentNewKeyword.trim().toLowerCase();
+                                        if (!formAppointmentKeywords.some(k => k.toLowerCase().trim() === normalized)) {
+                                          setFormAppointmentKeywords([...formAppointmentKeywords, formAppointmentNewKeyword.trim()]);
+                                          setFormAppointmentNewKeyword("");
+                                        }
+                                      }
+                                    }}
+                                    placeholder="Enter custom keyword (e.g., 'book appointment')"
+                                    className="flex-1 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (formAppointmentNewKeyword.trim()) {
+                                        const normalized = formAppointmentNewKeyword.trim().toLowerCase();
+                                        if (!formAppointmentKeywords.some(k => k.toLowerCase().trim() === normalized)) {
+                                          setFormAppointmentKeywords([...formAppointmentKeywords, formAppointmentNewKeyword.trim()]);
+                                          setFormAppointmentNewKeyword("");
+                                        }
+                                      }
+                                    }}
+                                    className="px-3 py-2 bg-emerald-500 text-white rounded-md text-xs font-medium hover:bg-emerald-600"
+                                  >
+                                    Add
+                                  </button>
+                                </div>
+                                {customKeywords.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {customKeywords.map((keyword, idx) => (
+                                      <span
+                                        key={`custom-${keyword}-${idx}`}
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[11px]"
+                                      >
+                                        {keyword}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            // Remove keyword (case-insensitive match, but keep the original case)
+                                            const normalized = keyword.toLowerCase().trim();
+                                            setFormAppointmentKeywords(
+                                              formAppointmentKeywords.filter(k => 
+                                                k.toLowerCase().trim() !== normalized
+                                              )
+                                            );
+                                          }}
+                                          className="text-emerald-600 hover:text-emerald-800"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {customKeywords.length === 0 && (
+                                  <p className="text-[10px] text-zinc-400 italic mt-2">
+                                    No custom keywords added yet. Add keywords above to customize detection.
+                                  </p>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Questions */}
+                      <div className="space-y-3">
+                        <p className="text-[11px] font-medium text-zinc-600">Customizable Questions</p>
+                        <div>
+                          <label className="block text-[11px] font-medium text-zinc-600 mb-1">Name Question</label>
+                          <input
+                            type="text"
+                            value={formAppointmentNameQuestion}
+                            onChange={(e) => setFormAppointmentNameQuestion(e.target.value)}
+                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-zinc-600 mb-1">Date Question</label>
+                          <input
+                            type="text"
+                            value={formAppointmentDateQuestion}
+                            onChange={(e) => setFormAppointmentDateQuestion(e.target.value)}
+                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-zinc-600 mb-1">Time Question</label>
+                          <input
+                            type="text"
+                            value={formAppointmentTimeQuestion}
+                            onChange={(e) => setFormAppointmentTimeQuestion(e.target.value)}
+                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-zinc-600 mb-1">Confirmation Question</label>
+                          <input
+                            type="text"
+                            value={formAppointmentConfirmationQuestion}
+                            onChange={(e) => setFormAppointmentConfirmationQuestion(e.target.value)}
+                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Success Message */}
+                      <div>
+                        <label className="block text-[11px] font-medium text-zinc-600 mb-1">Success Message</label>
+                        <input
+                          type="text"
+                          value={formAppointmentSuccessMessage}
+                          onChange={(e) => setFormAppointmentSuccessMessage(e.target.value)}
+                          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                        />
+                        <p className="mt-1 text-[10px] text-zinc-400">Use placeholders: [name], [date], [time], [phone]</p>
+                      </div>
+
+                      {/* Slot Management */}
+                      <div className="space-y-3">
+                        <p className="text-[11px] font-medium text-zinc-600">Slot Management</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-medium text-zinc-600 mb-1">Start Time</label>
+                            <input
+                              type="time"
+                              value={formAppointmentStartTime}
+                              onChange={(e) => setFormAppointmentStartTime(e.target.value)}
+                              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-zinc-600 mb-1">End Time</label>
+                            <input
+                              type="time"
+                              value={formAppointmentEndTime}
+                              onChange={(e) => setFormAppointmentEndTime(e.target.value)}
+                              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-zinc-600 mb-1">Slot Duration (minutes)</label>
+                          <input
+                            type="number"
+                            value={formAppointmentSlotDuration}
+                            onChange={(e) => setFormAppointmentSlotDuration(parseInt(e.target.value) || 30)}
+                            min={15}
+                            max={120}
+                            step={15}
+                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-zinc-600 mb-2">Working Days</label>
+                          <div className="flex gap-2">
+                            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  if (formAppointmentWorkingDays.includes(idx)) {
+                                    setFormAppointmentWorkingDays(formAppointmentWorkingDays.filter(d => d !== idx));
+                                  } else {
+                                    setFormAppointmentWorkingDays([...formAppointmentWorkingDays, idx].sort());
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                                  formAppointmentWorkingDays.includes(idx)
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                                }`}
+                              >
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               {step === "test" && (

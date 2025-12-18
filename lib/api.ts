@@ -932,6 +932,7 @@ export interface AgentDetailResponse {
 export async function fetchAgents(page: number = 1, limit: number = 100): Promise<AgentsListResponse> {
   const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/agents?page=${page}&limit=${limit}`, {
     headers: getAuthHeaders(),
+    cache: 'no-store', // Disable caching to always fetch fresh data
   });
 
   if (!response.ok) {
@@ -1696,4 +1697,94 @@ export async function downloadRecording(callId: string): Promise<Blob> {
   }
 
   return response.blob();
+}
+
+/**
+ * Appointment Booking API functions
+ */
+
+export interface DefaultKeywordGroup {
+  language: string;
+  label: string;
+  keywords: string[];
+}
+
+export interface AppointmentBookingSettings {
+  enabled: boolean;
+  detectionKeywords: string[];
+  defaultKeywords?: DefaultKeywordGroup[];
+  questions: {
+    nameQuestion: string;
+    dateQuestion: string;
+    timeQuestion: string;
+    confirmationQuestion: string;
+  };
+  successMessage: string;
+  slots: {
+    startTime: string;
+    endTime: string;
+    slotDurationMinutes: number;
+    workingDays: number[];
+  };
+}
+
+/**
+ * Get appointment booking settings for an agent
+ */
+export async function getAppointmentSettings(agentId: string): Promise<AppointmentBookingSettings> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/appointments/settings/${agentId}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      handleAuthError();
+      throw new Error('Authentication required');
+    }
+    const error = await response.json().catch(() => ({ message: 'Failed to fetch appointment settings' }));
+    throw new Error(error.message || error.error || `Failed to fetch appointment settings: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  if (result.success && result.data) {
+    return result.data;
+  }
+  throw new Error('Invalid response format');
+}
+
+/**
+ * Update appointment booking settings for an agent
+ */
+export async function updateAppointmentSettings(agentId: string, settings: AppointmentBookingSettings): Promise<void> {
+  console.log('📤 UPDATE APPOINTMENT SETTINGS API CALL', {
+    agentId,
+    url: `${API_BASE_URL}/api/v1/appointments/settings/${agentId}`,
+    settings
+  });
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/appointments/settings/${agentId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(settings),
+  });
+
+  console.log('📥 UPDATE APPOINTMENT SETTINGS RESPONSE', {
+    status: response.status,
+    statusText: response.statusText,
+    ok: response.ok
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      handleAuthError();
+      throw new Error('Authentication required');
+    }
+    const error = await response.json().catch(() => ({ message: 'Failed to update appointment settings' }));
+    console.error('❌ UPDATE APPOINTMENT SETTINGS ERROR', error);
+    throw new Error(error.message || error.error || `Failed to update appointment settings: ${response.statusText}`);
+  }
+
+  const result = await response.json().catch(() => null);
+  console.log('✅ UPDATE APPOINTMENT SETTINGS SUCCESS', result);
 }

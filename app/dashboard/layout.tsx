@@ -176,9 +176,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-h-screen">
-        {/* Desktop Sidebar */}
-        <aside className="hidden md:flex flex-col w-64 border-r border-zinc-200 bg-white/90 backdrop-blur-xl">
-          <div className="flex items-center gap-3 px-6 h-16 border-b border-zinc-200">
+        {/* Desktop Sidebar - Fixed */}
+        <aside className="hidden md:flex flex-col fixed left-0 top-0 h-screen w-64 border-r border-zinc-200 bg-white/90 backdrop-blur-xl z-40">
+          <div className="flex items-center gap-3 px-6 h-16 border-b border-zinc-200 flex-shrink-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg overflow-hidden">
               <Image src="/logo.png" alt="Logo" width={36} height={36} className="object-contain" />
             </div>
@@ -187,7 +187,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <div className="text-xs text-zinc-500">Operations Dashboard</div>
             </div>
           </div>
-          <nav className="flex-1 px-3 py-4 space-y-1">
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
@@ -207,7 +207,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
-          <div className="px-4 py-4 border-t border-zinc-100 text-xs text-zinc-500 flex items-center justify-center gap-2">
+          <div className="px-4 py-4 border-t border-zinc-100 text-xs text-zinc-500 flex items-center justify-center gap-2 flex-shrink-0">
             <span
               className={cn(
                 "inline-flex h-2 w-2 rounded-full",
@@ -221,8 +221,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        {/* Main */}
-        <div className="flex-1 flex flex-col">
+        {/* Main - With left margin to account for fixed sidebar */}
+        <div className="flex-1 flex flex-col md:ml-64">
           {/* Top bar */}
           <header className="h-16 border-b border-zinc-200 bg-white/80 backdrop-blur-xl flex items-center justify-between px-4 md:px-6 shadow-sm shadow-black/5">
             <div className="flex items-center gap-3 md:hidden">

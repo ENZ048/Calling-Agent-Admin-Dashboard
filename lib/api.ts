@@ -296,6 +296,66 @@ export async function fetchDashboardOverview(): Promise<DashboardOverviewRespons
   return response.json();
 }
 
+// Admin Settings types and functions
+export interface WhatsAppWelcomeConfig {
+  enabled: boolean;
+  apiKey?: string;
+  organizationSlug?: string;
+  campaignName?: string;
+  templateName?: string;
+  apiBaseUrl?: string;
+  sendMode?: 'immediate' | 'delay';
+  delayMinutes?: number;
+}
+
+export interface AdminSettings {
+  _id: string;
+  userId: string;
+  defaultTtsProvider: 'deepgram' | 'elevenlabs' | 'google';
+  ttsProviders: any;
+  whatsappWelcomeConfig?: WhatsAppWelcomeConfig;
+}
+
+export async function getAdminSettings(): Promise<AdminSettings> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/settings`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      handleAuthError();
+      throw new Error('Authentication required');
+    }
+    const error = await response.json().catch(() => ({ message: 'Failed to fetch settings' }));
+    throw new Error(error.message || `Failed to fetch settings: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  return result.data;
+}
+
+export async function updateAdminSettings(
+  data: Partial<Pick<AdminSettings, 'defaultTtsProvider' | 'ttsProviders' | 'whatsappWelcomeConfig'>>
+): Promise<AdminSettings> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/settings`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      handleAuthError();
+      throw new Error('Authentication required');
+    }
+    const error = await response.json().catch(() => ({ message: 'Failed to update settings' }));
+    throw new Error(error.message || `Failed to update settings: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  return result.data;
+}
+
 export async function fetchSystemStatus(): Promise<SystemStatusResponse> {
   const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/system-status`, {
     headers: getAuthHeaders(),

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Plus, ToggleLeft, ToggleRight, Loader2, Shield, Mail, X, Eye, EyeOff } from "lucide-react";
+import { Users, Plus, ToggleLeft, ToggleRight, Loader2, Shield, Mail, X, Eye, EyeOff, MessageCircle } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useUsersStore } from "@/lib/users";
 import { useToast } from "@/lib/toast";
-import { fetchPhones, assignPhoneToUserAPI, unassignPhoneFromUserAPI, Phone, getUserPermissionsAPI, updateUserPermissionsAPI, UserPermissions, DEFAULT_USER_PERMISSIONS } from "@/lib/api";
+import { fetchPhones, assignPhoneToUserAPI, unassignPhoneFromUserAPI, Phone, getUserPermissionsAPI, updateUserPermissionsAPI, UserPermissions, DEFAULT_USER_PERMISSIONS, getAdminSettings, updateAdminSettings, WhatsAppWelcomeConfig } from "@/lib/api";
 
 export default function UsersPage() {
   const toast = useToast();
@@ -196,11 +196,90 @@ The Team`;
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // WhatsApp template state
+  const [isWhatsAppTemplateOpen, setIsWhatsAppTemplateOpen] = useState(false);
+  const [whatsAppConfig, setWhatsAppConfig] = useState<WhatsAppWelcomeConfig>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("userWhatsAppTemplateConfig");
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch {
+          // ignore parse errors and fall back to defaults
+        }
+      }
+    }
+    return {
+      enabled: false,
+      apiKey: "",
+      organizationSlug: "",
+      campaignName: "",
+      templateName: "",
+      apiBaseUrl: "",
+      sendMode: "immediate",
+      delayMinutes: 0,
+    };
+  });
+  const [loadingWhatsAppConfig, setLoadingWhatsAppConfig] = useState(false);
+  const [savingWhatsAppConfig, setSavingWhatsAppConfig] = useState(false);
+
   const saveEmailTemplate = () => {
     localStorage.setItem("userEmailTemplateSubject", emailSubject);
     localStorage.setItem("userEmailTemplateBody", emailBody);
     toast.success("Email template saved successfully");
     setIsEmailTemplateOpen(false);
+  };
+
+  const loadWhatsAppConfig = async () => {
+    try {
+      setLoadingWhatsAppConfig(true);
+      const settings = await getAdminSettings();
+      const cfg = settings.whatsappWelcomeConfig || {
+        enabled: false,
+        apiKey: "",
+        organizationSlug: "",
+        campaignName: "",
+        templateName: "",
+        apiBaseUrl: "",
+        sendMode: "immediate" as const,
+        delayMinutes: 0,
+      };
+      setWhatsAppConfig(cfg);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("userWhatsAppTemplateConfig", JSON.stringify(cfg));
+      }
+    } catch (error: any) {
+      console.error("Failed to load WhatsApp config:", error);
+      toast.error(error.message || "Failed to load WhatsApp template settings");
+    } finally {
+      setLoadingWhatsAppConfig(false);
+    }
+  };
+
+  const saveWhatsAppConfig = async () => {
+    try {
+      setSavingWhatsAppConfig(true);
+      const payload: WhatsAppWelcomeConfig = {
+        ...whatsAppConfig,
+        delayMinutes:
+          whatsAppConfig.sendMode === "delay"
+            ? Number(whatsAppConfig.delayMinutes || 0)
+            : 0,
+      };
+      await updateAdminSettings({
+        whatsappWelcomeConfig: payload,
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("userWhatsAppTemplateConfig", JSON.stringify(payload));
+      }
+      toast.success("WhatsApp template settings saved successfully");
+      setIsWhatsAppTemplateOpen(false);
+    } catch (error: any) {
+      console.error("Failed to save WhatsApp config:", error);
+      toast.error(error.message || "Failed to save WhatsApp template settings");
+    } finally {
+      setSavingWhatsAppConfig(false);
+    }
   };
 
   const resetForm = () => {
@@ -455,6 +534,20 @@ The Team`;
           >
             <Mail className="h-4 w-4" />
             Email Template
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsWhatsAppTemplateOpen(true);
+              // Lazy-load from backend the first time the modal is opened
+              if (!loadingWhatsAppConfig) {
+                void loadWhatsAppConfig();
+              }
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+          >
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp Template
           </button>
           <button
             type="button"
@@ -1303,6 +1396,248 @@ The Team`;
               >
                 <Mail className="h-4 w-4" />
                 Save Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Template Modal */}
+      {isWhatsAppTemplateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white shadow-2xl shadow-black/10 mx-4 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-emerald-50">
+                  <MessageCircle className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-900">WhatsApp Template</h2>
+                  <p className="text-xs text-zinc-500">
+                    Configure WhatsApp welcome message for new users (AISensy or similar)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsWhatsAppTemplateOpen(false)}
+                className="p-2 rounded-full hover:bg-zinc-100 text-zinc-500"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-xs">
+              {loadingWhatsAppConfig ? (
+                <div className="flex items-center justify-center py-10 text-zinc-500 gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading WhatsApp settings...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Enable toggle */}
+                  <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3">
+                    <div>
+                      <p className="text-xs font-medium text-zinc-800">
+                        Send WhatsApp welcome message on user creation
+                      </p>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">
+                        When enabled, a WhatsApp template will be sent to the user&apos;s mobile number
+                        after their account is created.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setWhatsAppConfig((prev) => ({
+                          ...prev,
+                          enabled: !prev.enabled,
+                        }))
+                      }
+                      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] ${
+                        whatsAppConfig.enabled
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                          : "border-zinc-200 bg-white text-zinc-500"
+                      }`}
+                    >
+                      {whatsAppConfig.enabled ? "Enabled" : "Disabled"}
+                    </button>
+                  </div>
+
+                  {/* Provider configuration */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-medium text-zinc-700">
+                        API Key
+                      </label>
+                      <input
+                        type="password"
+                        value={whatsAppConfig.apiKey || ""}
+                        onChange={(e) =>
+                          setWhatsAppConfig((prev) => ({ ...prev, apiKey: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        placeholder="Enter AISensy API key"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-medium text-zinc-700">
+                        Organization Slug
+                      </label>
+                      <input
+                        type="text"
+                        value={whatsAppConfig.organizationSlug || ""}
+                        onChange={(e) =>
+                          setWhatsAppConfig((prev) => ({
+                            ...prev,
+                            organizationSlug: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        placeholder="e.g. troika-tech"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-medium text-zinc-700">
+                        Campaign Name
+                      </label>
+                      <input
+                        type="text"
+                        value={whatsAppConfig.campaignName || ""}
+                        onChange={(e) =>
+                          setWhatsAppConfig((prev) => ({
+                            ...prev,
+                            campaignName: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        placeholder="AISensy campaign name"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-medium text-zinc-700">
+                        Template Name
+                      </label>
+                      <input
+                        type="text"
+                        value={whatsAppConfig.templateName || ""}
+                        onChange={(e) =>
+                          setWhatsAppConfig((prev) => ({
+                            ...prev,
+                            templateName: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        placeholder="Approved WhatsApp template name"
+                      />
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="block text-[11px] font-medium text-zinc-700">
+                        API Base URL (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={whatsAppConfig.apiBaseUrl || ""}
+                        onChange={(e) =>
+                          setWhatsAppConfig((prev) => ({
+                            ...prev,
+                            apiBaseUrl: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        placeholder="Override backend AISensy endpoint if needed"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Timing configuration */}
+                  <div className="space-y-2 mt-2">
+                    <p className="text-xs font-medium text-zinc-800">Send Timing</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setWhatsAppConfig((prev) => ({
+                            ...prev,
+                            sendMode: "immediate",
+                            delayMinutes: 0,
+                          }))
+                        }
+                        className={`px-3 py-2 rounded-lg border text-[11px] text-left ${
+                          whatsAppConfig.sendMode !== "delay"
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                            : "border-zinc-200 bg-white text-zinc-600"
+                        }`}
+                      >
+                        <p className="font-medium">Send immediately</p>
+                        <p className="text-[10px] mt-0.5">
+                          WhatsApp will be sent right after the user is created.
+                        </p>
+                      </button>
+                      <div className="md:col-span-2 flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setWhatsAppConfig((prev) => ({
+                              ...prev,
+                              sendMode: "delay",
+                            }))
+                          }
+                          className={`px-3 py-2 rounded-lg border text-[11px] text-left flex-1 ${
+                            whatsAppConfig.sendMode === "delay"
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                              : "border-zinc-200 bg-white text-zinc-600"
+                          }`}
+                        >
+                          <p className="font-medium">Send after delay</p>
+                          <p className="text-[10px] mt-0.5">
+                            Configure a delay (in minutes) before sending WhatsApp.
+                          </p>
+                        </button>
+                        <div className="w-28">
+                          <label className="block text-[10px] font-medium text-zinc-600 mb-1">
+                            Delay (min)
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={whatsAppConfig.delayMinutes ?? 0}
+                            onChange={(e) =>
+                              setWhatsAppConfig((prev) => ({
+                                ...prev,
+                                delayMinutes: Number(e.target.value || 0),
+                              }))
+                            }
+                            className="w-full px-2 py-1.5 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Note: We intentionally do not show variable mapping here since
+                      the current WhatsApp campaign/template is configured without
+                      template parameters on the provider side. */}
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-zinc-200 px-5 py-4 bg-zinc-50 rounded-b-2xl">
+              <button
+                onClick={() => setIsWhatsAppTemplateOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveWhatsAppConfig}
+                disabled={savingWhatsAppConfig}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingWhatsAppConfig && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save WhatsApp Settings
               </button>
             </div>
           </div>

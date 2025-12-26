@@ -116,6 +116,59 @@ export default function CallsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const getFailureReasonBadge = (failureReason?: string) => {
+    if (!failureReason) return null;
+
+    const reason = failureReason.toLowerCase();
+
+    if (reason.includes('ndnc') || reason.includes('do not call')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-700 border border-red-200 whitespace-nowrap">
+          <span className="h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
+          NDNC Violation
+        </span>
+      );
+    }
+
+    if (reason.includes('blocked') || reason.includes('compliance')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-50 text-orange-700 border border-orange-200 whitespace-nowrap">
+          <span className="h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
+          Blocked
+        </span>
+      );
+    }
+
+    if (reason.includes('invalid')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-50 text-yellow-700 border border-yellow-200 whitespace-nowrap">
+          <span className="h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
+          Invalid Number
+        </span>
+      );
+    }
+
+    if (reason.includes('no') && reason.includes('answer')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-50 text-gray-700 border border-gray-200 whitespace-nowrap">
+          <span className="h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
+          No Answer
+        </span>
+      );
+    }
+
+    if (reason.includes('busy')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-50 text-gray-700 border border-gray-200 whitespace-nowrap">
+          <span className="h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
+          Busy
+        </span>
+      );
+    }
+
+    return null;
+  };
+
   const handleExportCsv = async () => {
     if (totalItems === 0) {
       toast.warning("No data to export");
@@ -311,6 +364,7 @@ export default function CallsPage() {
                   <th className="px-4 py-2 text-left font-medium">Campaign</th>
                   <th className="px-4 py-2 text-left font-medium">Call Type</th>
                   <th className="px-4 py-2 text-left font-medium">Status</th>
+                  <th className="px-4 py-2 text-left font-medium">Failure Reason</th>
                   <th className="px-4 py-2 text-left font-medium">Duration</th>
                   <th className="px-4 py-2 text-left font-medium">Credits</th>
                   <th className="px-4 py-2 text-center font-medium w-24">Details</th>
@@ -319,7 +373,7 @@ export default function CallsPage() {
               <tbody>
                 {calls.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
                       No call logs found
                     </td>
                   </tr>
@@ -344,6 +398,9 @@ export default function CallsPage() {
                       <td className="px-4 py-3 text-zinc-700">{c.campaignName}</td>
                       <td className="px-4 py-3 text-zinc-700">{c.callType}</td>
                       <td className="px-4 py-3 text-zinc-700">{c.outcome}</td>
+                      <td className="px-4 py-3">
+                        {getFailureReasonBadge(c.failureReason)}
+                      </td>
                       <td className="px-4 py-3 text-zinc-700">
                         {formatDuration(c.durationSec)}
                       </td>
@@ -469,6 +526,13 @@ export default function CallsPage() {
                     </p>
                   </div>
                 </div>
+
+                {selectedCall.failureReason && (
+                  <div className="px-4 py-3 border-b border-zinc-100">
+                    <p className="text-[11px] text-zinc-500 mb-1">Failure Reason</p>
+                    {getFailureReasonBadge(selectedCall.failureReason)}
+                  </div>
+                )}
 
                 <div className="px-4 py-4 space-y-3">
                   <div className="flex items-center justify-between gap-3">

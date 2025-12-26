@@ -481,6 +481,7 @@ export interface CallLogListItem {
   credits: number;
   hasTranscript: boolean;
   hasRecording: boolean;
+  failureReason?: string;
   createdAt: string;
   startedAt?: string;
   endedAt?: string;
@@ -522,6 +523,7 @@ export interface CallLogDetail {
   recordingUrl: string | null;
   s3RecordingKey: string | null;
   summary: string | null;
+  failureReason?: string;
   createdAt: string;
   startedAt?: string;
   endedAt?: string;

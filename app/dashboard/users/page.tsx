@@ -78,12 +78,26 @@ export default function UsersPage() {
   const confirmPhoneAction = async () => {
     if (!pendingPhoneAction) return;
 
-    const { userId, phoneId, action } = pendingPhoneAction;
+    const { userId, phoneId, action, currentAssignment } = pendingPhoneAction;
 
     if (action === "remove") {
       await handleUnassignPhone(userId, phoneId);
     } else {
       // For assign or change, the phoneId is the new phone to assign
+      // If phone is currently assigned to another user, unassign it first
+      if (currentAssignment && currentAssignment.userId) {
+        try {
+          // Unassign from current user first
+          await unassignPhoneFromUserAPI(phoneId);
+          toast.success(`Phone number removed from ${currentAssignment.userName}`);
+        } catch (error: any) {
+          console.error("Failed to unassign from current user:", error);
+          toast.error(`Failed to remove phone from ${currentAssignment.userName}: ${error.message}`);
+          setPendingPhoneAction(null);
+          return;
+        }
+      }
+      // Then assign to the new user
       await handleAssignPhone(userId, phoneId);
     }
 
@@ -135,6 +149,11 @@ export default function UsersPage() {
     phoneId: string;
     action: "assign" | "change" | "remove";
     newPhoneNumber?: string;
+    currentAssignment?: {
+      userId: string;
+      userName: string;
+      userEmail: string;
+    };
   } | null>(null);
 
   // Email template state
@@ -653,11 +672,36 @@ The Team`;
                                           key={phone._id}
                                           className="px-3 py-1.5 cursor-pointer hover:bg-zinc-50 outline-none"
                                           onSelect={() => {
+                                            // Check if phone is already assigned
+                                            let currentAssignment = undefined;
+                                            if (phone.userId) {
+                                              // Get user details from phone.userId (could be object or string)
+                                              const assignedUserId = typeof phone.userId === 'object' 
+                                                ? phone.userId._id 
+                                                : phone.userId;
+                                              const assignedUser = users.find(usr => usr.backendId === assignedUserId);
+                                              if (assignedUser) {
+                                                currentAssignment = {
+                                                  userId: assignedUserId,
+                                                  userName: assignedUser.fullName,
+                                                  userEmail: assignedUser.email,
+                                                };
+                                              } else if (typeof phone.userId === 'object') {
+                                                // If userId is populated object, use its properties
+                                                currentAssignment = {
+                                                  userId: phone.userId._id,
+                                                  userName: phone.userId.name || 'Unknown',
+                                                  userEmail: phone.userId.email || '',
+                                                };
+                                              }
+                                            }
+                                            
                                             setPendingPhoneAction({
                                               userId: u.id,
                                               phoneId: phone._id,
                                               action: "change",
                                               newPhoneNumber: phone.number,
+                                              currentAssignment,
                                             });
                                           }}
                                         >
@@ -698,12 +742,39 @@ The Team`;
                           onChange={(e) => {
                             if (e.target.value) {
                               const phone = availablePhones.find((p) => p._id === e.target.value);
-                              setPendingPhoneAction({
-                                userId: u.id,
-                                phoneId: e.target.value,
-                                action: "assign",
-                                newPhoneNumber: phone?.number,
-                              });
+                              if (phone) {
+                                // Check if phone is already assigned
+                                let currentAssignment = undefined;
+                                if (phone.userId) {
+                                  // Get user details from phone.userId (could be object or string)
+                                  const assignedUserId = typeof phone.userId === 'object' 
+                                    ? phone.userId._id 
+                                    : phone.userId;
+                                  const assignedUser = users.find(usr => usr.backendId === assignedUserId);
+                                  if (assignedUser) {
+                                    currentAssignment = {
+                                      userId: assignedUserId,
+                                      userName: assignedUser.fullName,
+                                      userEmail: assignedUser.email,
+                                    };
+                                  } else if (typeof phone.userId === 'object') {
+                                    // If userId is populated object, use its properties
+                                    currentAssignment = {
+                                      userId: phone.userId._id,
+                                      userName: phone.userId.name || 'Unknown',
+                                      userEmail: phone.userId.email || '',
+                                    };
+                                  }
+                                }
+                                
+                                setPendingPhoneAction({
+                                  userId: u.id,
+                                  phoneId: e.target.value,
+                                  action: "assign",
+                                  newPhoneNumber: phone.number,
+                                  currentAssignment,
+                                });
+                              }
                             }
                           }}
                           disabled={assigningPhoneUserId === u.id || loadingPhones}
@@ -1128,27 +1199,60 @@ The Team`;
                 ✕
               </button>
             </div>
-            <p className="text-xs text-zinc-600">
-              {pendingPhoneAction.action === "remove" ? (
-                <>Are you sure you want to remove the phone number from this user?</>
-              ) : pendingPhoneAction.action === "change" ? (
+            <div className="space-y-3">
+              {pendingPhoneAction.currentAssignment ? (
                 <>
-                  Are you sure you want to change the phone number to{" "}
-                  <span className="font-semibold text-emerald-600">
-                    {pendingPhoneAction.newPhoneNumber}
-                  </span>
-                  ?
+                  <p className="text-xs text-zinc-600">
+                    This phone number{" "}
+                    <span className="font-semibold text-emerald-600">
+                      {pendingPhoneAction.newPhoneNumber}
+                    </span>{" "}
+                    is currently assigned to:
+                  </p>
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                    <p className="text-xs font-medium text-zinc-900">
+                      {pendingPhoneAction.currentAssignment.userName}
+                    </p>
+                    <p className="text-xs text-zinc-600">
+                      {pendingPhoneAction.currentAssignment.userEmail}
+                    </p>
+                  </div>
+                  <p className="text-xs text-zinc-600">
+                    Do you want to remove it from{" "}
+                    <span className="font-semibold text-zinc-900">
+                      {pendingPhoneAction.currentAssignment.userName}
+                    </span>{" "}
+                    and assign it to{" "}
+                    <span className="font-semibold text-zinc-900">
+                      {users.find((u) => u.id === pendingPhoneAction?.userId)?.fullName || "this user"}
+                    </span>
+                    ?
+                  </p>
                 </>
               ) : (
-                <>
-                  Are you sure you want to assign{" "}
-                  <span className="font-semibold text-emerald-600">
-                    {pendingPhoneAction.newPhoneNumber}
-                  </span>{" "}
-                  to this user?
-                </>
+                <p className="text-xs text-zinc-600">
+                  {pendingPhoneAction.action === "remove" ? (
+                    <>Are you sure you want to remove the phone number from this user?</>
+                  ) : pendingPhoneAction.action === "change" ? (
+                    <>
+                      Are you sure you want to change the phone number to{" "}
+                      <span className="font-semibold text-emerald-600">
+                        {pendingPhoneAction.newPhoneNumber}
+                      </span>
+                      ?
+                    </>
+                  ) : (
+                    <>
+                      Are you sure you want to assign{" "}
+                      <span className="font-semibold text-emerald-600">
+                        {pendingPhoneAction.newPhoneNumber}
+                      </span>{" "}
+                      to this user?
+                    </>
+                  )}
+                </p>
               )}
-            </p>
+            </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -1170,7 +1274,9 @@ The Team`;
                 {assigningPhoneUserId !== null && (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 )}
-                {pendingPhoneAction.action === "remove"
+                {pendingPhoneAction.currentAssignment
+                  ? "Remove & Assign"
+                  : pendingPhoneAction.action === "remove"
                   ? "Remove"
                   : pendingPhoneAction.action === "change"
                   ? "Change"
